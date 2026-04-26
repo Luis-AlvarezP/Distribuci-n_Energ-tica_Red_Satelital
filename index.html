@@ -3,1413 +3,683 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Red Satelital LEO — Métodos Numéricos</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<style>
-  :root {
-    --bg: #020b18;
-    --bg2: #050f1f;
-    --panel: #071627;
-    --panel2: #0a1e35;
-    --border: #0d3a5c;
-    --accent: #00d4ff;
-    --accent2: #00ff9d;
-    --accent3: #ff6b35;
-    --accent4: #c77dff;
-    --warn: #ffb700;
-    --danger: #ff3864;
-    --text: #cce8ff;
-    --text-dim: #4a7a9b;
-    --text-bright: #ffffff;
-    --mono: 'Share Tech Mono', monospace;
-    --sans: 'Exo 2', sans-serif;
-    --glow: 0 0 20px rgba(0,212,255,0.3);
-    --glow2: 0 0 20px rgba(0,255,157,0.3);
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-weight: 300;
-    line-height: 1.6;
-    overflow-x: hidden;
-  }
-
-  /* STARFIELD */
-  #starfield {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none; z-index: 0;
-    background: radial-gradient(ellipse at 20% 50%, #051020 0%, #020b18 60%, #000 100%);
-  }
-  .star {
-    position: absolute; background: white; border-radius: 50%;
-    animation: twinkle var(--d) ease-in-out infinite;
-  }
-  @keyframes twinkle {
-    0%,100% { opacity: var(--o); transform: scale(1); }
-    50% { opacity: 0.1; transform: scale(0.5); }
-  }
-
-  /* LAYOUT */
-  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
-
-  /* HEADER */
-  header {
-    position: relative; padding: 60px 0 40px;
-    border-bottom: 1px solid var(--border);
-  }
-  .header-badge {
-    display: inline-block;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 3px;
-    color: var(--accent); background: rgba(0,212,255,0.08);
-    border: 1px solid rgba(0,212,255,0.3);
-    padding: 4px 14px; border-radius: 2px; margin-bottom: 20px;
-    text-transform: uppercase;
-  }
-  h1 {
-    font-size: clamp(28px, 5vw, 54px);
-    font-weight: 900; line-height: 1.05;
-    color: var(--text-bright);
-    text-shadow: 0 0 40px rgba(0,212,255,0.4);
-    margin-bottom: 8px;
-  }
-  h1 span { color: var(--accent); }
-  .subtitle {
-    font-family: var(--mono); font-size: 13px; color: var(--text-dim);
-    letter-spacing: 1px; margin-bottom: 30px;
-  }
-  .header-meta {
-    display: flex; gap: 30px; flex-wrap: wrap;
-  }
-  .meta-item { font-size: 12px; }
-  .meta-label { color: var(--text-dim); font-family: var(--mono); }
-  .meta-val { color: var(--accent2); font-family: var(--mono); font-weight: bold; }
-
-  /* ORBITAL RING */
-  .orbital-ring {
-    position: absolute; right: 60px; top: 30px;
-    width: 120px; height: 120px;
-    border: 2px solid rgba(0,212,255,0.15);
-    border-radius: 50%;
-    animation: spin 20s linear infinite;
-  }
-  .orbital-ring::before {
-    content: '';
-    position: absolute; top: -4px; left: 50%;
-    width: 8px; height: 8px;
-    background: var(--accent); border-radius: 50%;
-    box-shadow: var(--glow);
-    transform: translateX(-50%);
-  }
-  .orbital-ring2 {
-    position: absolute; right: 85px; top: 55px;
-    width: 70px; height: 70px;
-    border: 1px solid rgba(0,255,157,0.2);
-    border-radius: 50%;
-    animation: spin 12s linear infinite reverse;
-  }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-  /* SECTIONS */
-  section { padding: 40px 0; border-bottom: 1px solid rgba(13,58,92,0.4); }
-  .section-title {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 4px;
-    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
-  }
-  h2 {
-    font-size: 24px; font-weight: 700; color: var(--text-bright);
-    margin-bottom: 20px;
-  }
-
-  /* CARDS */
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-  .card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), transparent);
-  }
-  .card.green::before { background: linear-gradient(90deg, var(--accent2), transparent); }
-  .card.orange::before { background: linear-gradient(90deg, var(--accent3), transparent); }
-  .card.purple::before { background: linear-gradient(90deg, var(--accent4), transparent); }
-
-  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
-
-  /* VARIABLE CARDS */
-  .var-card {
-    display: flex; align-items: flex-start; gap: 16px;
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 6px; padding: 20px;
-  }
-  .var-icon {
-    width: 48px; height: 48px; border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; flex-shrink: 0;
-    background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3);
-  }
-  .var-icon.g { background: rgba(0,255,157,0.1); border-color: rgba(0,255,157,0.3); }
-  .var-icon.o { background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.3); }
-  .var-label { font-family: var(--mono); font-size: 16px; color: var(--accent); font-weight: bold; }
-  .var-name { font-size: 13px; font-weight: 600; color: var(--text-bright); margin: 2px 0; }
-  .var-desc { font-size: 12px; color: var(--text-dim); }
-
-  /* SCENARIO TABS */
-  .tab-bar {
-    display: flex; gap: 4px; margin-bottom: 20px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 6px; padding: 4px;
-  }
-  .tab-btn {
-    flex: 1; padding: 10px 16px;
-    background: transparent; border: none; border-radius: 4px;
-    color: var(--text-dim); font-family: var(--mono); font-size: 12px;
-    cursor: pointer; transition: all 0.2s;
-    text-align: center; letter-spacing: 1px;
-  }
-  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-  .tab-btn.active { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
-  .tab-btn.s2.active { background: rgba(255,183,0,0.12); color: var(--warn); border-color: rgba(255,183,0,0.3); }
-  .tab-btn.s3.active { background: rgba(255,56,100,0.12); color: var(--danger); border-color: rgba(255,56,100,0.3); }
-
-  /* MATRIX DISPLAY */
-  .matrix-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
-  .matrix-bracket {
-    font-size: 60px; color: var(--text-dim); line-height: 1;
-    font-weight: 100; font-family: var(--mono);
-  }
-  .matrix-inner { display: flex; flex-direction: column; gap: 4px; }
-  .matrix-row { display: flex; gap: 8px; }
-  .matrix-cell {
-    width: 80px; text-align: center;
-    font-family: var(--mono); font-size: 13px;
-    padding: 6px 4px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 3px; color: var(--text-bright);
-    transition: all 0.2s;
-  }
-  .matrix-cell:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow); color: var(--accent); }
-  .vec-cell { width: 80px; }
-  .matrix-label { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 4px; }
-
-  /* BUTTONS */
-  .btn {
-    padding: 12px 28px;
-    font-family: var(--mono); font-size: 13px; letter-spacing: 2px;
-    border: none; border-radius: 4px; cursor: pointer;
-    transition: all 0.2s; text-transform: uppercase;
-  }
-  .btn-primary {
-    background: var(--accent); color: var(--bg);
-    font-weight: bold;
-    box-shadow: 0 0 20px rgba(0,212,255,0.3);
-  }
-  .btn-primary:hover { box-shadow: 0 0 30px rgba(0,212,255,0.6); transform: translateY(-1px); }
-  .btn-ghost {
-    background: transparent; color: var(--accent);
-    border: 1px solid rgba(0,212,255,0.4);
-  }
-  .btn-ghost:hover { background: rgba(0,212,255,0.08); }
-
-  /* RESULTS */
-  .result-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
-  .result-table th {
-    padding: 10px 14px; text-align: left;
-    background: var(--bg2); color: var(--text-dim);
-    border-bottom: 1px solid var(--border);
-    letter-spacing: 1px; font-size: 10px; text-transform: uppercase;
-  }
-  .result-table td {
-    padding: 10px 14px; border-bottom: 1px solid rgba(13,58,92,0.3);
-    color: var(--text);
-  }
-  .result-table tr:hover td { background: rgba(0,212,255,0.03); }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 2px;
-    font-size: 10px; letter-spacing: 1px; font-weight: bold;
-  }
-  .badge-yes { background: rgba(0,255,157,0.15); color: var(--accent2); border: 1px solid rgba(0,255,157,0.3); }
-  .badge-no { background: rgba(255,56,100,0.15); color: var(--danger); border: 1px solid rgba(255,56,100,0.3); }
-  .badge-ref { background: rgba(0,212,255,0.15); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
-  .best-cell { color: var(--accent2) !important; font-weight: bold; }
-
-  /* SOR SLIDER */
-  .slider-wrap { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
-  .slider-label { font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; }
-  input[type=range] {
-    -webkit-appearance: none; appearance: none;
-    height: 4px; background: var(--border); border-radius: 2px; flex: 1;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 16px; height: 16px; border-radius: 50%;
-    background: var(--accent); cursor: pointer;
-    box-shadow: var(--glow);
-  }
-  .slider-val { font-family: var(--mono); font-size: 14px; color: var(--accent); min-width: 35px; }
-
-  /* SOLUTION DISPLAY */
-  .solution-row {
-    display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0;
-  }
-  .sol-box {
-    flex: 1; min-width: 140px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 6px; padding: 16px; text-align: center;
-  }
-  .sol-box-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
-  .sol-box-var { font-size: 20px; color: var(--accent); margin: 4px 0; font-family: var(--mono); }
-  .sol-box-val { font-size: 15px; color: var(--text-bright); font-family: var(--mono); font-weight: bold; }
-  .sol-box-unit { font-size: 10px; color: var(--text-dim); }
-
-  /* COND NUMBER DISPLAY */
-  .kappa-display {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 4px; padding: 8px 16px;
-    font-family: var(--mono); font-size: 13px;
-  }
-  .kappa-label { color: var(--text-dim); }
-  .kappa-val { font-weight: bold; }
-  .kappa-good { color: var(--accent2); }
-  .kappa-warn { color: var(--warn); }
-  .kappa-bad { color: var(--danger); }
-
-  /* LOG */
-  .log-box {
-    background: #010a14; border: 1px solid var(--border);
-    border-radius: 4px; padding: 16px;
-    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
-    max-height: 200px; overflow-y: auto;
-    line-height: 1.8;
-  }
-  .log-box .log-ok { color: var(--accent2); }
-  .log-box .log-warn { color: var(--warn); }
-  .log-box .log-err { color: var(--danger); }
-  .log-box .log-info { color: var(--accent); }
-
-  /* 3D CANVAS */
-  #three-canvas {
-    width: 100%; height: 420px;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 6px; display: block;
-  }
-
-  /* CHARTS */
-  .chart-wrap {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 6px; padding: 20px;
-  }
-
-  /* INTERPRETATION */
-  .interp-block {
-    background: var(--panel2); border-left: 3px solid var(--accent2);
-    border-radius: 0 6px 6px 0; padding: 16px 20px; margin: 12px 0;
-  }
-  .interp-title { font-family: var(--mono); font-size: 11px; color: var(--accent2); margin-bottom: 6px; letter-spacing: 2px; }
-  .interp-text { font-size: 13px; color: var(--text); line-height: 1.7; }
-
-  /* FORMULA DISPLAY */
-  .formula-box {
-    background: var(--bg2); border: 1px solid rgba(0,212,255,0.2);
-    border-radius: 4px; padding: 14px 18px; margin: 10px 0;
-    font-family: var(--mono); font-size: 13px; color: var(--accent);
-    text-align: center; letter-spacing: 0.5px;
-  }
-  .formula-box small { color: var(--text-dim); font-size: 11px; display: block; margin-top: 4px; }
-
-  /* PULSE ANIM */
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-  .pulse { animation: pulse 2s infinite; }
-
-  /* TOOLTIP */
-  .tooltip { position: relative; }
-  .tooltip .tip {
-    display: none; position: absolute; bottom: 120%; left: 50%;
-    transform: translateX(-50%);
-    background: var(--panel2); border: 1px solid var(--border);
-    border-radius: 4px; padding: 8px 12px; font-size: 11px;
-    white-space: nowrap; z-index: 100;
-    font-family: var(--mono); color: var(--text);
-  }
-  .tooltip:hover .tip { display: block; }
-
-  /* SCROLL REVEAL */
-  .reveal { opacity: 0; transform: translateY(20px); transition: all 0.5s ease; }
-  .reveal.visible { opacity: 1; transform: translateY(0); }
-
-  /* RESPONSIVE */
-  @media (max-width: 768px) {
-    .orbital-ring, .orbital-ring2 { display: none; }
-    .grid-2 { grid-template-columns: 1fr; }
-    .matrix-cell { width: 60px; font-size: 11px; }
-    .tab-btn { font-size: 10px; padding: 8px 8px; }
-  }
-
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-</style>
+<title>Red Satelital LEO — Métodos Numéricos UMSA 2026</title>
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script src="js/math.js" defer></script>
+<script src="js/scenarios.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/charts.js" defer></script>
+<script src="js/three-planes.js" defer></script>
+<script src="js/app.js" defer></script>
 </head>
 <body>
 
 <canvas id="starfield"></canvas>
 
-<!-- HEADER -->
-<header>
-  <div class="container">
-    <div class="orbital-ring"></div>
-    <div class="orbital-ring2"></div>
-    <div class="header-badge">▶ MÉTODOS NUMÉRICOS — UMSA 2026</div>
-    <h1>Distribución Energética en<br><span>Red Satelital LEO</span></h1>
-    <div class="subtitle">// Modelado y Resolución de Sistemas Lineales Complejos · Tolerancia 10⁻⁶</div>
-    <div class="header-meta">
-      <div class="meta-item"><span class="meta-label">MÉTODOS: </span><span class="meta-val">Jacobi · Gauss-Seidel · SOR · GCP · LU</span></div>
-      <div class="meta-item"><span class="meta-label">ESCENARIOS: </span><span class="meta-val">3 (Nominal · Estrés · Mal Cond.)</span></div>
-      <div class="meta-item"><span class="meta-label">TOL: </span><span class="meta-val">10⁻⁶</span></div>
-      <div class="meta-item"><span class="meta-label">REF: </span><span class="meta-val">Suñagua (2020) — Alg. 2</span></div>
+<!-- ══════════════════════════════════════════
+     NAVBAR
+══════════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <span class="dot"></span>
+    LEO-SAT / NM
+  </div>
+  <ul class="nav-links">
+    <li><a href="#" data-page="home" class="active">
+      <span class="nav-icon">🛰</span> Inicio
+    </a></li>
+    <li><a href="#" data-page="solver">
+      <span class="nav-icon">⚙️</span> Solver Interactivo
+    </a></li>
+    <li><a href="#" data-page="graficos">
+      <span class="nav-icon">📊</span> Gráficos por Método
+    </a></li>
+    <li><a href="#" data-page="analisis">
+      <span class="nav-icon">🔬</span> Análisis Comparativo
+    </a></li>
+    <li><a href="#" data-page="algoritmos">
+      <span class="nav-icon">📐</span> Algoritmos
+    </a></li>
+  </ul>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1: HOME
+══════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="container">
+      <div class="orbital-wrap">
+        <div class="orbital-ring"><div class="orbital-ring2"></div></div>
+      </div>
+      <div class="header-badge">▶ MÉTODOS NUMÉRICOS — UMSA · ABRIL 2026</div>
+      <h1>Distribución Energética en<br><span>Red Satelital LEO</span></h1>
+      <div class="hero-subtitle">// Modelado y Resolución de Sistemas Lineales Complejos · Tolerancia 10⁻⁶</div>
+      <div class="hero-meta">
+        <div class="meta-item"><span class="meta-label">MÉTODOS: </span><span class="meta-val">Jacobi · G-S · SOR · GCP · LU</span></div>
+        <div class="meta-item"><span class="meta-label">ESCENARIOS: </span><span class="meta-val">3 (Nominal · Estrés · Mal Cond.)</span></div>
+        <div class="meta-item"><span class="meta-label">TOLERANCIA: </span><span class="meta-val">10⁻⁶</span></div>
+        <div class="meta-item"><span class="meta-label">REF: </span><span class="meta-val">Suñagua (2020) Alg. 2</span></div>
+      </div>
     </div>
   </div>
-</header>
 
-<!-- SECTION 1: CONTEXTO -->
-<section>
-  <div class="container reveal">
-    <div class="section-title">// 01 — MODELADO DEL SISTEMA</div>
-    <h2>El Satélite como Servidor Orbital</h2>
-    <p style="max-width:800px; margin-bottom:24px; color:var(--text); font-size:14px; line-height:1.8;">
-      Un satélite de órbita baja (LEO) es esencialmente un <strong style="color:var(--accent)">servidor de red autónomo</strong> operando a ~550 km de altitud. Su restricción crítica es el <em>Power Budget</em>: la energía eléctrica generada por los paneles solares debe distribuirse entre sus tres subsistemas principales sin saturación ni apagado. El sistema <strong>Ax = b</strong> modela este balance, donde cada ecuación representa una restricción térmica o energética del bus eléctrico.
-    </p>
-    <div class="grid-3">
-      <div class="var-card">
-        <div class="var-icon">📡</div>
-        <div>
-          <div class="var-label">x₁</div>
-          <div class="var-name">Transmisión de Datos (RF/Láser)</div>
-          <div class="var-desc">Potencia [W] asignada al enlace de comunicaciones. Conecta el nodo con tierra y otros satélites de la constelación. Alta demanda en downlink.</div>
+  <!-- SECCIÓN: EL PROBLEMA -->
+  <section>
+    <div class="container">
+      <div class="section-tag">01 — MODELADO DEL SISTEMA</div>
+      <h2>El Satélite como Servidor Orbital</h2>
+      <p style="max-width:860px;margin-bottom:24px;">
+        Un satélite de órbita baja (LEO) es esencialmente un <strong style="color:var(--accent)">servidor de red autónomo</strong> a ~550 km de altitud. Su restricción crítica es el <em>Power Budget</em>: la energía eléctrica generada por los paneles solares debe distribuirse entre sus tres subsistemas sin saturación ni apagado. El sistema <strong>Ax = b</strong> modela este balance, donde cada ecuación representa una restricción térmica o energética del bus eléctrico.
+      </p>
+      <div class="grid-3">
+        <div class="var-card">
+          <div class="var-icon">📡</div>
+          <div>
+            <div class="var-label">x₁</div>
+            <div class="var-name">Transmisión de Datos (RF/Láser)</div>
+            <div class="var-desc">Potencia [W] al enlace de comunicaciones. Conecta el nodo con tierra y otros satélites. Alta demanda en downlink masivo.</div>
+          </div>
         </div>
-      </div>
-      <div class="var-card">
-        <div class="var-icon g">💻</div>
-        <div>
-          <div class="var-label" style="color:var(--accent2)">x₂</div>
-          <div class="var-name">Procesamiento de Paquetes (CPU)</div>
-          <div class="var-desc">Potencia [W] para el router embarcado. Enruta el tráfico IP de usuarios. Genera calor residual que afecta al subsistema térmico del satélite.</div>
+        <div class="var-card">
+          <div class="var-icon g">💻</div>
+          <div>
+            <div class="var-label" style="color:var(--accent2)">x₂</div>
+            <div class="var-name">Procesamiento de Paquetes (CPU)</div>
+            <div class="var-desc">Potencia [W] para el router embarcado. Enruta el tráfico IP de usuarios. Genera calor residual que afecta el subsistema térmico.</div>
+          </div>
         </div>
-      </div>
-      <div class="var-card">
-        <div class="var-icon o">⚙️</div>
-        <div>
-          <div class="var-label" style="color:var(--accent3)">x₃</div>
-          <div class="var-name">Estabilización (Reaction Wheels)</div>
-          <div class="var-desc">Potencia [W] para los motores de orientación. Mantienen el satélite apuntando correctamente. Consumo variable según maniobras de actitud.</div>
+        <div class="var-card">
+          <div class="var-icon o">⚙️</div>
+          <div>
+            <div class="var-label" style="color:var(--accent3)">x₃</div>
+            <div class="var-name">Estabilización (Reaction Wheels)</div>
+            <div class="var-desc">Potencia [W] para los motores de orientación. Mantienen el satélite apuntando correctamente. Consumo variable en maniobras.</div>
+          </div>
         </div>
       </div>
     </div>
-    <div style="margin-top:20px;" class="card">
-      <div style="font-family:var(--mono); font-size:12px; color:var(--text-dim); margin-bottom:12px;">// SIGNIFICADO DE LA MATRIZ A Y VECTOR b</div>
+  </section>
+
+  <!-- SECCIÓN: A y b -->
+  <section>
+    <div class="container">
+      <div class="section-tag">02 — SIGNIFICADO DE A Y b</div>
+      <h2>La Matriz de Eficiencia y el Power Budget</h2>
       <div class="grid-2">
-        <div>
-          <strong style="color:var(--accent); font-family:var(--mono); font-size:12px;">MATRIZ A — Coeficientes de Eficiencia Eléctrica:</strong>
-          <p style="font-size:13px; margin-top:8px; line-height:1.7;">Cada elemento aᵢⱼ representa cuánto influye la potencia del subsistema j en la restricción i. Por ejemplo, a₁₂ es la interferencia térmica que genera la CPU sobre el bus del transmisor RF. Los elementos de la diagonal dominante representan la eficiencia propia de cada subsistema.</p>
-        </div>
-        <div>
-          <strong style="color:var(--accent2); font-family:var(--mono); font-size:12px;">VECTOR b — Power Budget Disponible [W]:</strong>
-          <p style="font-size:13px; margin-top:8px; line-height:1.7;">Cada componente bᵢ es la potencia total que el panel solar puede suministrar bajo la restricción i de la órbita actual. Cambia según el ángulo de incidencia solar, la temperatura de las celdas fotovoltaicas y el estado de las baterías de litio.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- SECTION 2: ESCENARIOS + SOLVER -->
-<section>
-  <div class="container reveal">
-    <div class="section-title">// 02 — ESCENARIOS Y RESOLUCIÓN INTERACTIVA</div>
-    <h2>Selecciona un Escenario de Operación</h2>
-
-    <div class="tab-bar">
-      <button class="tab-btn active" onclick="setScenario(0)">🟢 ESC. 1 — NOMINAL</button>
-      <button class="tab-btn s2" onclick="setScenario(1)">🟡 ESC. 2 — SOBRECARGA</button>
-      <button class="tab-btn s3" onclick="setScenario(2)">🔴 ESC. 3 — MAL COND.</button>
-    </div>
-
-    <div class="grid-2">
-      <!-- LEFT: Matrix editor -->
-      <div class="card" id="scenario-card">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:8px;">// CONTEXTO DEL ESCENARIO</div>
-        <div id="scenario-desc" style="font-size:13px; margin-bottom:16px; line-height:1.7;"></div>
-        <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:4px;">// SISTEMA Ax = b (EDITABLE)</div>
-        <div class="matrix-wrap" id="matrix-display">
-          <!-- Filled by JS -->
-        </div>
-        <div class="kappa-display" style="margin-top:12px;">
-          <span class="kappa-label">κ(A) ≈ </span>
-          <span class="kappa-val" id="kappa-val">—</span>
-          <span id="kappa-badge" style="font-size:10px; margin-left:6px;"></span>
-        </div>
-        <div style="margin-top:16px;">
-          <div class="slider-wrap">
-            <span class="slider-label">ω SOR:</span>
-            <input type="range" min="1.0" max="1.99" step="0.01" value="1.25" id="sor-omega" oninput="updateOmega()">
-            <span class="slider-val" id="sor-omega-val">1.25</span>
-          </div>
-          <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono);">// ω=1 → Gauss-Seidel puro · 1&lt;ω&lt;2 → Sobrerelajación</div>
-        </div>
-        <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="solveAll()">▶ RESOLVER TODOS LOS MÉTODOS</button>
-          <button class="btn btn-ghost" onclick="resetScenario()">↺ RESTAURAR</button>
-        </div>
-      </div>
-
-      <!-- RIGHT: Exact solution + interpretation -->
-      <div>
-        <div class="card" style="margin-bottom:16px;">
-          <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:12px;">// SOLUCIÓN EXACTA (Ax = b · referencia teórica)</div>
-          <div class="solution-row" id="exact-solution">
-            <div class="sol-box"><div class="sol-box-label">x₁</div><div class="sol-box-var">RF/Láser</div><div class="sol-box-val" id="ex1">—</div><div class="sol-box-unit">Watts</div></div>
-            <div class="sol-box"><div class="sol-box-label">x₂</div><div class="sol-box-var">CPU</div><div class="sol-box-val" id="ex2">—</div><div class="sol-box-unit">Watts</div></div>
-            <div class="sol-box"><div class="sol-box-label">x₃</div><div class="sol-box-var">React. Wheels</div><div class="sol-box-val" id="ex3">—</div><div class="sol-box-unit">Watts</div></div>
-          </div>
-          <div class="interp-block" id="interp-block">
-            <div class="interp-title">▷ INTERPRETACIÓN DE INGENIERÍA</div>
-            <div class="interp-text" id="interp-text">Presiona RESOLVER para ver la interpretación.</div>
-          </div>
+        <div class="card">
+          <h3 style="color:var(--accent)">Matriz A — Coeficientes de Eficiencia Eléctrica</h3>
+          <p>Cada elemento aᵢⱼ representa cuánto influye la potencia del subsistema <em>j</em> en la restricción <em>i</em>. Por ejemplo, a₁₂ es la interferencia térmica que genera la CPU (x₂) sobre el bus del transmisor RF (x₁). Los elementos de la diagonal dominante representan la eficiencia propia de cada subsistema: su disipación de calor y pérdidas resistivas en función de la temperatura orbital.</p>
         </div>
         <div class="card green">
-          <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:8px;">// LOG DE EJECUCIÓN</div>
-          <div class="log-box" id="log-box">
-            <span style="color:var(--text-dim)">› Esperando ejecución...</span>
+          <h3 style="color:var(--accent2)">Vector b — Power Budget Disponible [W]</h3>
+          <p>Cada componente bᵢ es la potencia que el panel solar puede suministrar bajo la restricción <em>i</em> de la órbita actual. Cambia según: el ángulo de incidencia solar sobre las celdas fotovoltaicas, la temperatura de los paneles (que afecta la eficiencia), el estado de carga de las baterías de litio, y si el satélite está en zona iluminada o en umbra terrestre.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN: 3 ESCENARIOS RESUMEN -->
+  <section>
+    <div class="container">
+      <div class="section-tag">03 — LOS TRES ESCENARIOS CRÍTICOS</div>
+      <h2>Condiciones de Operación Modeladas</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div style="font-size:28px;margin-bottom:10px;">🟢</div>
+          <h3 style="color:var(--accent2)">Escenario 1 — Nominal</h3>
+          <p>Visibilidad solar total. Tráfico constante y bajo. Matriz bien condicionada (κ pequeño). Todos los métodos convergen rápido. Los subsistemas no compiten por potencia.</p>
+          <div style="margin-top:12px;"><span class="badge badge-yes">BIEN COND.</span> <span class="badge badge-ref">REFERENCIA</span></div>
+        </div>
+        <div class="card warn">
+          <div style="font-size:28px;margin-bottom:10px;">🟡</div>
+          <h3 style="color:var(--warn)">Escenario 2 — Estrés</h3>
+          <p>Pico masivo de usuarios. CPU y RF al límite térmico. Coeficientes de b muy grandes. El SOR demuestra su ventaja estabilizando el sistema más rápido que GS puro.</p>
+          <div style="margin-top:12px;"><span class="badge badge-warn">ALTA DEMANDA</span></div>
+        </div>
+        <div class="card danger">
+          <div style="font-size:28px;margin-bottom:10px;">🔴</div>
+          <h3 style="color:var(--danger)">Escenario 3 — Mal Condicionado</h3>
+          <p>Sombra terrestre. Sensores con ruido a −180 °C. Dos filas de A casi iguales → κ(A) ≫ 1 → planos casi paralelos. Solo el GCP precondicionado (Suñagua) resuelve con precisión.</p>
+          <div style="margin-top:12px;"><span class="badge badge-no">MAL COND.</span> <span class="badge" style="background:rgba(199,125,255,0.15);color:var(--accent4);border:1px solid rgba(199,125,255,0.3);">GCP REQUERIDO</span></div>
+        </div>
+      </div>
+      <div style="margin-top:28px;text-align:center;">
+        <button class="btn btn-primary" onclick="navigateTo('solver')">▶ IR AL SOLVER INTERACTIVO</button>
+        <button class="btn btn-ghost" style="margin-left:12px;" onclick="navigateTo('algoritmos')">📐 VER ALGORITMOS</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- end page-home -->
+
+
+<!-- ══════════════════════════════════════════
+     PAGE 2: SOLVER INTERACTIVO
+══════════════════════════════════════════ -->
+<div class="page" id="page-solver">
+  <div class="page-hero">
+    <div class="container">
+      <div class="page-hero-tag">02 / SOLVER INTERACTIVO</div>
+      <div class="page-hero-title">Resolver Sistema <span>Ax = b</span></div>
+      <div class="page-hero-sub">// Edita los coeficientes · Selecciona escenario · Ve la resolución completa de cada método</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="container">
+      <!-- TABS -->
+      <div class="tab-bar">
+        <button class="tab-btn active"    onclick="setScenario(0)">🟢 ESC. 1 — NOMINAL</button>
+        <button class="tab-btn s2"        onclick="setScenario(1)">🟡 ESC. 2 — SOBRECARGA</button>
+        <button class="tab-btn s3"        onclick="setScenario(2)">🔴 ESC. 3 — MAL COND.</button>
+      </div>
+
+      <div class="grid-2">
+        <!-- LEFT: matrix + controls -->
+        <div>
+          <div class="card" style="margin-bottom:14px;">
+            <div class="section-tag" style="margin-bottom:8px;">CONTEXTO DEL ESCENARIO</div>
+            <div id="scenario-desc" style="font-size:13px;line-height:1.75;margin-bottom:16px;"></div>
+            <div class="section-tag" style="margin-bottom:4px;">SISTEMA Ax = b <span style="font-size:9px;color:var(--text-dim)">(celdas editables)</span></div>
+            <div id="matrix-container"></div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div class="kappa-display">
+                <span class="kappa-label">κ(A) ≈ </span>
+                <span id="kappa-val" class="kappa-good">—</span>
+                <span id="kappa-badge"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-tag" style="margin-bottom:8px;">PARÁMETRO SOR</div>
+            <div class="slider-wrap">
+              <span class="slider-label">ω SOR:</span>
+              <input type="range" min="1.0" max="1.99" step="0.01" value="1.25" id="sor-omega" oninput="updateOmega()">
+              <span class="slider-val" id="sor-omega-val">1.25</span>
+            </div>
+            <div style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">// ω=1 → Gauss-Seidel · 1&lt;ω&lt;2 → Sobrerelajación (SOR)</div>
+            <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="solveAll()">▶ RESOLVER TODOS LOS MÉTODOS</button>
+              <button class="btn btn-ghost" onclick="resetScenario()">↺ RESTAURAR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: exact solution + log -->
+        <div>
+          <div class="card" style="margin-bottom:14px;">
+            <div class="section-tag" style="margin-bottom:10px;">SOLUCIÓN EXACTA — Factorización LU (referencia teórica)</div>
+            <div class="solution-row">
+              <div class="sol-box">
+                <div class="sol-box-label">Variable x₁</div>
+                <div class="sol-box-var">📡 RF/Láser</div>
+                <div class="sol-box-val" id="ex1">—</div>
+                <div class="sol-box-unit">Watts</div>
+              </div>
+              <div class="sol-box">
+                <div class="sol-box-label">Variable x₂</div>
+                <div class="sol-box-var">💻 CPU</div>
+                <div class="sol-box-val" id="ex2">—</div>
+                <div class="sol-box-unit">Watts</div>
+              </div>
+              <div class="sol-box">
+                <div class="sol-box-label">Variable x₃</div>
+                <div class="sol-box-var">⚙️ React.Wheels</div>
+                <div class="sol-box-val" id="ex3">—</div>
+                <div class="sol-box-unit">Watts</div>
+              </div>
+            </div>
+            <div class="interp-block">
+              <div class="interp-title">▷ INTERPRETACIÓN DE INGENIERÍA SATELITAL</div>
+              <div class="interp-text" id="interp-text">Presiona RESOLVER para ver la interpretación.</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-tag" style="margin-bottom:8px;">LOG DE EJECUCIÓN</div>
+            <div class="log-box" id="log-main">
+              <span style="color:var(--text-dim)">› Esperando ejecución...</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- SECTION 3: TABLA COMPARATIVA -->
-<section>
-  <div class="container reveal">
-    <div class="section-title">// 03 — ANÁLISIS COMPARATIVO</div>
-    <h2>Tabla de Eficiencia — Todos los Métodos</h2>
-    <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px; font-family:var(--mono);">// Tolerancia: 10⁻⁶ · Max iteraciones: 10,000 · Precondicionador GCP: M = diag(A)⁻¹</p>
-    <div style="overflow-x:auto;">
-      <table class="result-table" id="compare-table">
-        <thead>
-          <tr>
-            <th>MÉTODO</th>
-            <th>ITER. ESC. 1 (Nominal)</th>
-            <th>ITER. ESC. 2 (Estrés)</th>
-            <th>ITER. ESC. 3 (Mal Cond.)</th>
-            <th>CONV. ESC. 1</th>
-            <th>CONV. ESC. 2</th>
-            <th>CONV. ESC. 3</th>
-            <th>ERROR FINAL (ESC. 3)</th>
-          </tr>
-        </thead>
-        <tbody id="compare-tbody">
-          <tr><td colspan="8" style="text-align:center; color:var(--text-dim); font-family:var(--mono);">Presiona RESOLVER en cualquier escenario para calcular todos</td></tr>
-        </tbody>
-      </table>
+  <!-- LU RESULT -->
+  <section>
+    <div class="container">
+      <div class="section-tag">FACTORIZACIÓN LU — MÉTODO DIRECTO</div>
+      <h2>Resolución Exacta: Factorización LU</h2>
+      <p style="margin-bottom:16px;font-size:12px;color:var(--text-dim);">Referencia exacta. Descomposición de Doolittle con pivoteo parcial. Complejidad O(n³). Sin iteraciones.</p>
+      <div id="lu-output"></div>
     </div>
-    <div style="margin-top:20px;" class="card">
-      <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:12px;">// ANÁLISIS DEL NÚMERO DE CONDICIÓN Y COMPORTAMIENTO</div>
-      <div id="analysis-text" style="font-size:13px; line-height:1.8; color:var(--text);">
-        Ejecuta el solver para generar el análisis automático del condicionamiento.
-      </div>
-    </div>
-  </div>
-</section>
+  </section>
 
-<!-- SECTION 4: GRÁFICOS -->
-<section>
-  <div class="container reveal">
-    <div class="section-title">// 04 — VISUALIZACIÓN</div>
-    <h2>Convergencia y Geometría del Sistema</h2>
-    <div class="grid-2">
-      <div class="chart-wrap">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:12px;">// GRÁFICO DE CONVERGENCIA — Error vs Iteración (escala log)</div>
-        <canvas id="conv-chart" height="280"></canvas>
-      </div>
-      <div>
-        <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:8px;">// VISUALIZACIÓN 3D — INTERSECCIÓN DE PLANOS (Three.js)</div>
-        <canvas id="three-canvas"></canvas>
-        <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-top:8px; text-align:center;">
-          🖱️ Arrastrar para rotar · Scroll para zoom · Esc. 3: planos casi paralelos visibles
+  <!-- ITERATIVE METHODS RESULTS -->
+  <section>
+    <div class="container">
+      <div class="section-tag">MÉTODOS ITERATIVOS — RESOLUCIÓN COMPLETA</div>
+      <h2>Resultado Individual de Cada Método</h2>
+      <p style="margin-bottom:16px;font-size:12px;color:var(--text-dim);">
+        Cada panel muestra: iteraciones realizadas, vector solución xₖ en cada paso registrado, error relativo y estado de convergencia.
+        Haz clic en el encabezado de cada panel para expandirlo/colapsarlo.
+      </p>
+      <div id="methods-output">
+        <div style="text-align:center;padding:40px;color:var(--text-dim);font-family:var(--mono);font-size:12px;">
+          ▷ Presiona RESOLVER TODOS LOS MÉTODOS para ver los resultados individuales
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- SECTION 5: ALGORITMOS -->
-<section>
-  <div class="container reveal">
-    <div class="section-title">// 05 — RIGOR MATEMÁTICO</div>
-    <h2>Algoritmos Implementados</h2>
-    <div class="grid-3">
-      <div class="card">
-        <div style="font-family:var(--mono); font-size:13px; color:var(--accent); margin-bottom:8px;">FACTORIZACIÓN LU</div>
-        <div class="formula-box">A = L·U<br><small>x = U⁻¹(L⁻¹b) — método directo, sin iteraciones</small></div>
-        <p style="font-size:12px; color:var(--text-dim); line-height:1.7;">Descomposición de Doolittle. Pivoteo parcial para estabilidad. Complejidad O(n³). Sirve como referencia exacta contra la que se mide el error de los métodos iterativos.</p>
+</div><!-- end page-solver -->
+
+
+<!-- ══════════════════════════════════════════
+     PAGE 3: GRÁFICOS POR MÉTODO
+══════════════════════════════════════════ -->
+<div class="page" id="page-graficos">
+  <div class="page-hero">
+    <div class="container">
+      <div class="page-hero-tag">03 / GRÁFICOS POR MÉTODO</div>
+      <div class="page-hero-title">Convergencia <span>Individual</span></div>
+      <div class="page-hero-sub">// Gráfico separado por método · Escala logarítmica · Línea de tolerancia 10⁻⁶</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="container">
+      <!-- Scenario selector -->
+      <div class="section-tag">SELECCIONAR ESCENARIO</div>
+      <div class="tab-bar" style="margin-bottom:24px;">
+        <button class="tab-btn active graf-tab" onclick="setGrafScenario(0)">🟢 ESC. 1 — NOMINAL</button>
+        <button class="tab-btn s2 graf-tab"     onclick="setGrafScenario(1)">🟡 ESC. 2 — ESTRÉS</button>
+        <button class="tab-btn s3 graf-tab"     onclick="setGrafScenario(2)">🔴 ESC. 3 — MAL COND.</button>
       </div>
-      <div class="card green">
-        <div style="font-family:var(--mono); font-size:13px; color:var(--accent2); margin-bottom:8px;">JACOBI / GAUSS-SEIDEL</div>
-        <div class="formula-box" style="border-color:rgba(0,255,157,0.2); color:var(--accent2);">x_i^(k+1) = (b_i − Σaᵢⱼxⱼ) / aᵢᵢ<br><small>Jacobi: usa xᵏ · GS: usa xᵏ⁺¹ disponibles</small></div>
-        <p style="font-size:12px; color:var(--text-dim); line-height:1.7;">Métodos iterativos clásicos. Convergencia garantizada si A es diagonalmente dominante. GS converge ~2x más rápido que Jacobi en general.</p>
+
+      <!-- JACOBI -->
+      <div class="section-tag">MÉTODO 1 — JACOBI</div>
+      <div class="grid-2" style="margin-bottom:24px;">
+        <div class="chart-wrap">
+          <div class="chart-title">// JACOBI — Error vs Iteración (log)</div>
+          <div style="height:260px;position:relative;"><canvas id="chart-j"></canvas></div>
+        </div>
+        <div class="card">
+          <h3 style="color:var(--accent)">Jacobi</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="meta-pill" style="background:var(--bg);">Convergió: <span id="badge-jacobi">—</span></div>
+            <div class="meta-pill" style="background:var(--bg);">Iteraciones: <span id="iter-jacobi" style="color:var(--accent);">—</span></div>
+          </div>
+          <div class="formula-box">x_i^(k+1) = (b_i − Σⱼ≠ᵢ aᵢⱼ xⱼ^k) / aᵢᵢ<br><small>Usa valores de la iteración anterior (xᵏ) para todos los j</small></div>
+          <p style="font-size:12px;margin-top:10px;color:var(--text-dim);">Cada componente se actualiza usando exclusivamente valores de la iteración <em>k</em> anterior. Actualización simultánea. Convergencia garantizada si A es diagonalmente dominante (|aᵢᵢ| > Σⱼ≠ᵢ|aᵢⱼ|).</p>
+        </div>
       </div>
-      <div class="card orange">
-        <div style="font-family:var(--mono); font-size:13px; color:var(--accent3); margin-bottom:8px;">SOR</div>
-        <div class="formula-box" style="border-color:rgba(255,107,53,0.2); color:var(--accent3);">x_i^(k+1) = (1-ω)x_i^k + ω·x̃_i^(k+1)<br><small>ω ∈ (1,2) → sobrerelajación acelerada</small></div>
-        <p style="font-size:12px; color:var(--text-dim); line-height:1.7;">Successive Over-Relaxation. El parámetro ω controla la velocidad de convergencia. Óptimo cuando ω > 1. Ajusta el slider en el panel de escenarios.</p>
+
+      <!-- GAUSS-SEIDEL -->
+      <div class="section-tag">MÉTODO 2 — GAUSS-SEIDEL</div>
+      <div class="grid-2" style="margin-bottom:24px;">
+        <div class="chart-wrap">
+          <div class="chart-title">// GAUSS-SEIDEL — Error vs Iteración (log)</div>
+          <div style="height:260px;position:relative;"><canvas id="chart-gs"></canvas></div>
+        </div>
+        <div class="card green">
+          <h3 style="color:var(--accent2)">Gauss-Seidel</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="meta-pill" style="background:var(--bg);">Convergió: <span id="badge-gs">—</span></div>
+            <div class="meta-pill" style="background:var(--bg);">Iteraciones: <span id="iter-gs" style="color:var(--accent2);">—</span></div>
+          </div>
+          <div class="formula-box green">x_i^(k+1) = (b_i − Σⱼ&lt;ᵢ aᵢⱼ xⱼ^(k+1) − Σⱼ&gt;ᵢ aᵢⱼ xⱼ^k) / aᵢᵢ<br><small>Usa xᵏ⁺¹ ya disponibles (actualización in-place)</small></div>
+          <p style="font-size:12px;margin-top:10px;color:var(--text-dim);">Usa inmediatamente los valores actualizados en la misma iteración. Converge ~2× más rápido que Jacobi en la mayoría de casos. Requiere la misma condición de dominancia diagonal para convergencia garantizada.</p>
+        </div>
+      </div>
+
+      <!-- SOR -->
+      <div class="section-tag">MÉTODO 3 — SOR (SOBRERELAJACIÓN SUCESIVA)</div>
+      <div class="grid-2" style="margin-bottom:24px;">
+        <div class="chart-wrap">
+          <div class="chart-title">// SOR — Error vs Iteración (log)</div>
+          <div style="height:260px;position:relative;"><canvas id="chart-sor"></canvas></div>
+        </div>
+        <div class="card orange">
+          <h3 style="color:var(--accent3)">SOR</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="meta-pill" style="background:var(--bg);">Convergió: <span id="badge-sor">—</span></div>
+            <div class="meta-pill" style="background:var(--bg);">Iteraciones: <span id="iter-sor" style="color:var(--accent3);">—</span></div>
+          </div>
+          <div class="formula-box orange">x_i^(k+1) = (1−ω)·x_i^k + ω·x̃_i^(k+1)<br><small>x̃ = valor Gauss-Seidel · ω ∈ (1, 2): sobrerelajación</small></div>
+          <p style="font-size:12px;margin-top:10px;color:var(--text-dim);">Extiende Gauss-Seidel con el factor de relajación ω. Con ω > 1 se sobrerrelajala actualización, acelerando la convergencia. El ω óptimo minimiza el radio espectral de la matriz de iteración. Ajusta el slider en el Solver.</p>
+        </div>
+      </div>
+
+      <!-- GCP -->
+      <div class="section-tag">MÉTODO 4 — GRADIENTE CONJUGADO PRECONDICIONADO (SUÑAGUA 2020)</div>
+      <div class="grid-2" style="margin-bottom:24px;">
+        <div class="chart-wrap">
+          <div class="chart-title">// GCP (Suñagua Alg. 2) — Error vs Iteración (log)</div>
+          <div style="height:260px;position:relative;"><canvas id="chart-gcp"></canvas></div>
+        </div>
+        <div class="card purple">
+          <h3 style="color:var(--accent4)">Grad. Conjugado Precondicionado</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="meta-pill" style="background:var(--bg);">Convergió: <span id="badge-gcp">—</span></div>
+            <div class="meta-pill" style="background:var(--bg);">Iteraciones: <span id="iter-gcp" style="color:var(--accent4);">—</span></div>
+            <div class="meta-pill" style="background:var(--bg);">Precond: <span style="color:var(--accent4);">M=diag(A)⁻¹</span></div>
+          </div>
+          <div class="formula-box purple">αₖ = rᵀₖzₖ / pᵀₖApₖ  ·  βₖ = rᵀₖzₖ / rᵀₖ₋₁zₖ₋₁<br><small>Mzₖ = rₖ · pₖ = zₖ + βₖpₖ₋₁ · xₖ = xₖ₋₁ + αₖpₖ</small></div>
+          <p style="font-size:12px;margin-top:10px;color:var(--text-dim);">Implementa exactamente el Algoritmo 2 de Suñagua (2020). El precondicionador trivial M=diag(A)⁻¹ escala cada variable por su diagonal, concentrando los autovalores y reduciendo κ efectivo. Crítico en el Escenario 3.</p>
+        </div>
+      </div>
+
+      <!-- COMPARISON CHART -->
+      <div class="section-tag">TODOS LOS MÉTODOS — COMPARATIVO</div>
+      <div class="chart-wrap">
+        <div class="chart-title">// COMPARATIVO — Jacobi · Gauss-Seidel · SOR · GCP — Error vs Iteración (log)</div>
+        <div style="height:320px;position:relative;"><canvas id="chart-all"></canvas></div>
       </div>
     </div>
-    <div class="card purple" style="margin-top:16px;">
-      <div style="font-family:var(--mono); font-size:13px; color:var(--accent4); margin-bottom:12px;">GRADIENTE CONJUGADO PRECONDICIONADO — Algoritmo 2 (Suñagua, 2020)</div>
+  </section>
+</div><!-- end page-graficos -->
+
+
+<!-- ══════════════════════════════════════════
+     PAGE 4: ANÁLISIS COMPARATIVO
+══════════════════════════════════════════ -->
+<div class="page" id="page-analisis">
+  <div class="page-hero">
+    <div class="container">
+      <div class="page-hero-tag">04 / ANÁLISIS COMPARATIVO</div>
+      <div class="page-hero-title">Eficiencia y <span>Condicionamiento</span></div>
+      <div class="page-hero-sub">// Tabla comparativa · Visualización 3D · Análisis de κ(A) · Gráficos de barras</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="container">
+      <div class="section-tag">TABLA COMPARATIVA — TODOS LOS MÉTODOS · TODOS LOS ESCENARIOS</div>
+      <h2>Eficiencia de los Métodos (Tol. 10⁻⁶)</h2>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:16px;font-family:var(--mono);">// La celda en verde indica el mejor resultado iterativo por escenario · LU es método directo (no iterativo)</p>
+      <div style="overflow-x:auto;">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>MÉTODO</th>
+              <th>ITER. ESC.1 (Nominal)</th>
+              <th>ITER. ESC.2 (Estrés)</th>
+              <th>ITER. ESC.3 (Mal Cond.)</th>
+              <th>CONV. ESC.1</th>
+              <th>CONV. ESC.2</th>
+              <th>CONV. ESC.3</th>
+              <th>ERROR FINAL (ESC.3)</th>
+            </tr>
+          </thead>
+          <tbody id="compare-tbody">
+            <tr><td colspan="8" style="text-align:center;color:var(--text-dim);font-family:var(--mono);padding:20px;">Calculando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- BAR CHARTS -->
+  <section>
+    <div class="container">
+      <div class="section-tag">GRÁFICOS DE BARRAS — COMPARATIVO CRUZADO</div>
+      <h2>Iteraciones y Precisión por Método y Escenario</h2>
+      <div class="grid-2">
+        <div class="chart-wrap">
+          <div class="chart-title">// ITERACIONES POR MÉTODO Y ESCENARIO</div>
+          <div style="height:280px;position:relative;"><canvas id="chart-iters-bar"></canvas></div>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">// PRECISIÓN: −log₁₀(error final) — mayor = mejor</div>
+          <div style="height:280px;position:relative;"><canvas id="chart-err-bar"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3D VISUALIZATION -->
+  <section>
+    <div class="container">
+      <div class="section-tag">VISUALIZACIÓN 3D — INTERSECCIÓN DE PLANOS</div>
+      <h2>Geometría del Sistema Lineal en ℝ³</h2>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:16px;">En n=3, cada ecuación define un plano en el espacio. La solución es la intersección de los tres planos. En el Escenario 3, dos planos son casi paralelos (sistema mal condicionado), lo que hace la intersección numéricamente inestable.</p>
+      <div class="tab-bar" style="margin-bottom:14px;max-width:500px;">
+        <button class="tab-btn active sc3d-tab"    onclick="render3DForScenario(0)">🟢 ESC. 1</button>
+        <button class="tab-btn s2 sc3d-tab"        onclick="render3DForScenario(1)">🟡 ESC. 2</button>
+        <button class="tab-btn s3 sc3d-tab"        onclick="render3DForScenario(2)">🔴 ESC. 3 (casi paralelos)</button>
+      </div>
+      <canvas id="three-canvas"></canvas>
+      <div class="three-hint">🖱️ Arrastrar para rotar · Scroll para zoom · ★ = Solución del sistema</div>
+    </div>
+  </section>
+
+  <!-- ANALYSIS TEXT -->
+  <section>
+    <div class="container">
+      <div class="section-tag">ANÁLISIS DEL CONDICIONAMIENTO</div>
+      <h2>Interpretación Matemática e Ingenieril</h2>
+      <div class="card" style="margin-bottom:16px;">
+        <div id="analysis-text" style="font-size:13px;line-height:1.9;">
+          Calculando análisis...
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <h3 style="color:var(--accent)">κ pequeño → Sistema Robusto</h3>
+          <p style="font-size:12px;">Cuando κ(A) es pequeño (cercano a 1), una perturbación relativa δb/b en el vector de datos produce una perturbación en la solución del mismo orden: δx/x ≤ κ·δb/b. El satélite puede confiar en la solución calculada.</p>
+        </div>
+        <div class="card warn">
+          <h3 style="color:var(--warn)">κ grande → Sensibilidad Extrema</h3>
+          <p style="font-size:12px;">Con κ(A) ≫ 1, errores pequeños en la medición de los sensores se amplifican enormemente en la solución. El sistema no puede determinar confiablemente la distribución de potencia: riesgo de daño al hardware.</p>
+        </div>
+        <div class="card purple">
+          <h3 style="color:var(--accent4)">GCP → Reduce κ Efectivo</h3>
+          <p style="font-size:12px;">El precondicionador M=diag(A)⁻¹ transforma el sistema a Mx̃=b̃ donde κ(M) ≪ κ(A). Los autovalores se concentran alrededor de 1. La convergencia del GCP depende de κ(M), no de κ(A).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- end page-analisis -->
+
+
+<!-- ══════════════════════════════════════════
+     PAGE 5: ALGORITMOS
+══════════════════════════════════════════ -->
+<div class="page" id="page-algoritmos">
+  <div class="page-hero">
+    <div class="container">
+      <div class="page-hero-tag">05 / RIGOR MATEMÁTICO</div>
+      <div class="page-hero-title">Algoritmos <span>Implementados</span></div>
+      <div class="page-hero-sub">// Pseudocódigo · Fórmulas · Condiciones de convergencia · Referencia Suñagua (2020)</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="container">
+      <div class="section-tag">MÉTODO DIRECTO</div>
+      <h2>Factorización LU (Doolittle + Pivoteo Parcial)</h2>
       <div class="grid-2">
         <div>
-          <div class="formula-box" style="border-color:rgba(199,125,255,0.2); color:var(--accent4); text-align:left; font-size:11px; line-height:1.9;">
-            Precondicionador: M = diag(A)⁻¹ [trivial, C = diag(A)^(-1/2)]<br>
-            Resuelve Mzₖ = rₖ en cada iteración<br>
-            βₖ = r^T_{k-1}·z_{k-1} / r^T_{k-2}·z_{k-2}<br>
-            pₖ = z_{k-1} + βₖ·p_{k-1}<br>
-            αₖ = r^T_{k-1}·z_{k-1} / p^T_k·A·pₖ<br>
-            xₖ = x_{k-1} + αₖ·pₖ<br>
-            rₖ = r_{k-1} − αₖ·A·pₖ
+          <div class="formula-box">
+            A = L · U<br>
+            Lᵢⱼ = aᵢⱼ − Σₖ&lt;ⱼ Lᵢₖ·Uₖⱼ / Uⱼⱼ   (i &gt; j)<br>
+            Uᵢⱼ = aᵢⱼ − Σₖ&lt;ᵢ Lᵢₖ·Uₖⱼ             (i ≤ j)<br>
+            <small>Complejidad: O(n³) · Sin iteraciones · Solución exacta (módulo aritmética finita)</small>
           </div>
+          <p style="font-size:12px;margin-top:10px;">La factorización descompone A en el producto de una matriz triangular inferior L y una superior U. El pivoteo parcial intercambia filas para maximizar la estabilidad numérica. La solución se obtiene por sustitución progresiva (Ly = Pb) y regresiva (Ux = y).</p>
         </div>
-        <div>
-          <p style="font-size:13px; line-height:1.8; color:var(--text);">
-            El GCP transforma el sistema mal condicionado <em>Ax = b</em> en uno equivalente con número de condición κ(M) ≪ κ(A). El precondicionador diagonal M = diag(A)⁻¹ escala cada variable por su propia diagonal, concentrando los autovalores. Esto es fundamental en el Escenario 3 donde los métodos clásicos divergen o convergen extremadamente lento.
-          </p>
-          <div class="formula-box" style="border-color:rgba(199,125,255,0.2); color:var(--accent4);">
-            κ(A_precond) ≪ κ(A_original)<br>
-            <small>Convergencia: ‖xₖ−x‖ ≤ 2((√κ−1)/(√κ+1))^k ‖x₀−x‖</small>
+        <div class="card">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:10px;">// PSEUDOCÓDIGO LU (Doolittle)</div>
+          <div class="step-log" style="max-height:none;">
+<span class="sl-conv">Para k = 0 a n-1:</span>
+  <span class="sl-iter">  Encontrar maxRow (pivoteo parcial)</span>
+  <span class="sl-iter">  Intercambiar filas k ↔ maxRow</span>
+  <span class="sl-conv">  Para i = k+1 a n-1:</span>
+  <span class="sl-iter">    L[i][k] = U[i][k] / U[k][k]</span>
+  <span class="sl-conv">    Para j = k a n-1:</span>
+  <span class="sl-iter">      U[i][j] -= L[i][k] * U[k][j]</span>
+<span class="sl-conv">Sustitución progresiva: Ly = Pb</span>
+<span class="sl-conv">Sustitución regresiva:  Ux = y</span>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<footer style="border-top:1px solid var(--border); padding:30px 0; margin-top:20px;">
-  <div class="container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-    <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim);">
-      Ref: Suñagua, P. (2020). Método de Gradientes Conjugados Precondicionado. Rev. Bol. Mat. UMSA-04.<br>
-      Métodos Numéricos · UMSA · Abril 2026
+  <section>
+    <div class="container">
+      <div class="section-tag">MÉTODOS ITERATIVOS CLÁSICOS</div>
+      <h2>Jacobi y Gauss-Seidel</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="color:var(--accent)">Jacobi</h3>
+          <div class="formula-box">x_i^(k+1) = (b_i − Σⱼ≠ᵢ aᵢⱼ xⱼ^(k)) / aᵢᵢ</div>
+          <div class="step-log" style="margin-top:12px;max-height:none;">
+<span class="sl-conv">Dado x⁰ = 0, tol = 10⁻⁶</span>
+<span class="sl-conv">Para k = 0, 1, 2, ...:</span>
+  <span class="sl-conv">  Para i = 0 a n-1:</span>
+  <span class="sl-iter">    s = Σⱼ≠ᵢ a[i][j] * x[j]  (usa xᵏ)</span>
+  <span class="sl-iter">    x_new[i] = (b[i] - s) / a[i][i]</span>
+  <span class="sl-iter">  err = ‖x_new − x‖∞</span>
+  <span class="sl-iter">  x = x_new</span>
+  <span class="sl-conv">  Si err &lt; tol: CONVERGIÓ → retornar x</span>
+          </div>
+          <p style="font-size:11px;margin-top:10px;color:var(--text-dim);">Condición suficiente: A diagonalmente dominante estricta.</p>
+        </div>
+        <div class="card green">
+          <h3 style="color:var(--accent2)">Gauss-Seidel</h3>
+          <div class="formula-box green">x_i^(k+1) = (b_i − Σⱼ&lt;ᵢ aᵢⱼ xⱼ^(k+1) − Σⱼ&gt;ᵢ aᵢⱼ xⱼ^(k)) / aᵢᵢ</div>
+          <div class="step-log" style="margin-top:12px;max-height:none;">
+<span class="sl-conv">Dado x⁰ = 0, tol = 10⁻⁶</span>
+<span class="sl-conv">Para k = 0, 1, 2, ...:</span>
+  <span class="sl-iter">  x_old = copia de x</span>
+  <span class="sl-conv">  Para i = 0 a n-1:</span>
+  <span class="sl-iter">    s = Σⱼ≠ᵢ a[i][j] * x[j]  (usa xᵏ⁺¹ disponibles)</span>
+  <span class="sl-iter">    x[i] = (b[i] - s) / a[i][i]  (in-place)</span>
+  <span class="sl-iter">  err = ‖x − x_old‖∞</span>
+  <span class="sl-conv">  Si err &lt; tol: CONVERGIÓ → retornar x</span>
+          </div>
+          <p style="font-size:11px;margin-top:10px;color:var(--text-dim);">Converge ~2× más rápido que Jacobi. Misma condición suficiente.</p>
+        </div>
+      </div>
     </div>
-    <div style="font-family:var(--mono); font-size:11px; color:var(--text-dim); text-align:right;">
-      Todos los cálculos en JavaScript puro · Tolerancia 10⁻⁶<br>
-      Visualización 3D: Three.js r128 · Gráficas: Chart.js 4.4
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="section-tag">SOBRERELAJACIÓN SUCESIVA</div>
+      <h2>SOR — Successive Over-Relaxation</h2>
+      <div class="grid-2">
+        <div>
+          <div class="formula-box orange">
+            x̃_i^(k+1) = Gauss-Seidel paso i<br>
+            x_i^(k+1) = (1 − ω)·x_i^(k) + ω·x̃_i^(k+1)<br>
+            <small>ω = 1: equivalente a Gauss-Seidel · ω ∈ (1,2): sobrerelajación</small>
+          </div>
+          <p style="font-size:12px;margin-top:10px;">El parámetro ω "sobre-corrige" la actualización de Gauss-Seidel. Con ω > 1 se salta hacia adelante en la dirección de la corrección, acelerando la convergencia. El ω óptimo para matrices simétricas definidas positivas depende del radio espectral ρ de la matriz de Jacobi: ω_opt = 2/(1+√(1−ρ²)).</p>
+          <div class="interp-block" style="margin-top:14px;">
+            <div class="interp-title">▷ VENTAJA EN EL ESCENARIO 2</div>
+            <div class="interp-text">En el escenario de estrés, los coeficientes grandes de b hacen que Gauss-Seidel necesite más iteraciones. SOR con ω ajustado converge significativamente más rápido, reduciendo el tiempo de respuesta del sistema de control de potencia del satélite.</div>
+          </div>
+        </div>
+        <div class="card orange">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:10px;">// PSEUDOCÓDIGO SOR</div>
+          <div class="step-log" style="max-height:none;">
+<span class="sl-conv">Dado x⁰ = 0, ω ∈ (1,2), tol = 10⁻⁶</span>
+<span class="sl-conv">Para k = 0, 1, 2, ...:</span>
+  <span class="sl-iter">  x_old = copia de x</span>
+  <span class="sl-conv">  Para i = 0 a n-1:</span>
+  <span class="sl-iter">    s = Σⱼ≠ᵢ a[i][j] * x[j]</span>
+  <span class="sl-iter">    x_GS = (b[i] - s) / a[i][i]</span>
+  <span class="sl-iter">    x[i] = (1-ω)*x[i] + ω*x_GS</span>
+  <span class="sl-iter">  err = ‖x − x_old‖∞</span>
+  <span class="sl-conv">  Si err &lt; 10⁻⁶: CONVERGIÓ</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="section-tag">MÉTODO AVANZADO — REFERENCIA: SUÑAGUA (2020)</div>
+      <h2>Gradiente Conjugado Precondicionado — Algoritmo 2</h2>
+      <div class="card purple" style="margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent4);margin-bottom:12px;">// ALGORITMO 2 — Suñagua, P. Rev. Bol. Mat. UMSA-04 (2020) · Precondicionador: M = diag(A)⁻¹</div>
+        <div class="grid-2">
+          <div>
+            <div class="formula-box purple" style="text-align:left;line-height:2;">
+              Precond: M = diag(A)⁻¹ · [trivial: C = diag(A)^(-½)]<br>
+              Datos: x⁰ (inicial), Ax⁰ ≈ b<br>
+              r₀ = b − Ax⁰ (residuo inicial)<br>
+              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br>
+              Mientras rₖ ≠ 0:<br>
+              &nbsp;&nbsp;Resolver Mzₖ = rₖ (diagonal: zₖ = M·rₖ)<br>
+              &nbsp;&nbsp;Si k=1: p₁ = z₀<br>
+              &nbsp;&nbsp;Si k&gt;1: βₖ = rᵀₖ₋₁zₖ₋₁ / rᵀₖ₋₂zₖ₋₂<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pₖ = zₖ₋₁ + βₖ·pₖ₋₁<br>
+              &nbsp;&nbsp;αₖ = rᵀₖ₋₁zₖ₋₁ / pᵀₖApₖ<br>
+              &nbsp;&nbsp;xₖ = xₖ₋₁ + αₖ·pₖ<br>
+              &nbsp;&nbsp;rₖ = rₖ₋₁ − αₖ·A·pₖ<br>
+              ━━━━━━━━━━━━━━━━━━━━━━━━━━━━<br>
+              retornar x = xₖ
+            </div>
+          </div>
+          <div>
+            <h3 style="color:var(--accent4);margin-bottom:10px;">¿Por qué es crítico en el Escenario 3?</h3>
+            <p style="font-size:12px;line-height:1.8;">El GCP transforma el sistema mal condicionado Ax=b en el sistema precondicionado M⁻¹Ax=M⁻¹b donde M=CCᵀ=diag(A). La nueva matriz de coeficientes M⁻¹A tiene número de condición κ(M⁻¹A) ≪ κ(A).</p>
+            <div class="formula-box purple" style="margin:12px 0;">
+              ‖xₖ − x‖ ≤ 2·((√κ−1)/(√κ+1))ᵏ·‖x₀−x‖<br>
+              <small>Tasa de convergencia depende de κ(M⁻¹A), no de κ(A)</small>
+            </div>
+            <p style="font-size:12px;color:var(--text-dim);">Con el precondicionador diagonal, los autovalores de M⁻¹A se concentran cerca de 1, reduciendo drásticamente el cociente (√κ−1)/(√κ+1) y acelerando la convergencia. En el Escenario 3 esto es la diferencia entre converger y diverger.</p>
+            <div class="interp-block" style="margin-top:12px;">
+              <div class="interp-title">▷ IMPLEMENTACIÓN EN ESTE PROYECTO</div>
+              <div class="interp-text">Se implementa exactamente el Algoritmo 2 de Suñagua (2020). El precondicionador M=diag(A)⁻¹ es "trivial" computacionalmente (solo división por el elemento diagonal), pero mejora significativamente κ para matrices con diagonal dominante. Ver <code>js/math.js → solveGCP()</code>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REFERENCES -->
+  <section>
+    <div class="container">
+      <div class="section-tag">REFERENCIAS</div>
+      <h2>Bibliografía</h2>
+      <div class="card" style="font-family:var(--mono);font-size:11px;line-height:2.2;color:var(--text-dim);">
+        <span style="color:var(--accent4);">[1]</span> Suñagua, P. (2020). <em>Método de Gradientes Conjugados Precondicionado.</em> Revista Boliviana de Matemática – UMSA 04 (2020) 2–7. Instituto de Investigación Matemática, UMSA, La Paz – Bolivia.<br>
+        <span style="color:var(--accent4);">[2]</span> Golub, G. H. &amp; Van Loan, C. F. (2013). <em>Matrix Computations.</em> 4th ed. JHU Press. ISBN 978-1-4214-0794-4.<br>
+        <span style="color:var(--accent4);">[3]</span> Burden, R. L. &amp; Faires, J. D. <em>Numerical Analysis.</em> Cengage Learning, 9th ed.<br>
+        <span style="color:var(--accent4);">[4]</span> Hestenes, M. R. &amp; Stiefel, E. (1952). <em>Methods of Conjugate Gradients for Solving Linear Systems.</em> NBS Washington, DC.<br>
+        <span style="color:var(--accent4);">[5]</span> Oliveira, A. R. &amp; Sorensen, D. C. (2005). A new class of preconditioners for large-scale linear systems from interior point methods. <em>Linear Algebra and its Applications</em>, 394, 1–24.<br>
+        <span style="color:var(--text-dim);">Implementación: JavaScript puro · Chart.js 4.4 · Three.js r128 · UMSA Métodos Numéricos · Abril 2026</span>
+      </div>
+    </div>
+  </section>
+
+</div><!-- end page-algoritmos -->
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid var(--border);padding:24px 0;position:relative;z-index:1;">
+  <div class="container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">
+      Ref: Suñagua, P. (2020) · Métodos Numéricos UMSA · Abril 2026
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);">
+      JS puro · Chart.js 4.4 · Three.js r128 · Tol 10⁻⁶
     </div>
   </div>
 </footer>
 
-<script>
-// ============================================================
-// STARFIELD
-// ============================================================
-(function(){
-  const c = document.getElementById('starfield');
-  const ctx = c.getContext('2d');
-  c.width = window.innerWidth; c.height = window.innerHeight;
-  const stars = [];
-  for(let i=0;i<200;i++){
-    stars.push({
-      x: Math.random()*c.width, y: Math.random()*c.height,
-      r: Math.random()*1.5+0.2, o: Math.random()*0.7+0.1,
-      d: Math.random()*3000+1000
-    });
-  }
-  function draw(){
-    ctx.clearRect(0,0,c.width,c.height);
-    stars.forEach(s=>{
-      const t = Date.now()/s.d;
-      const op = s.o*(0.5+0.5*Math.sin(t));
-      ctx.beginPath();
-      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-      ctx.fillStyle=`rgba(180,220,255,${op})`;
-      ctx.fill();
-    });
-    requestAnimationFrame(draw);
-  }
-  draw();
-  window.addEventListener('resize',()=>{ c.width=window.innerWidth; c.height=window.innerHeight; });
-})();
-
-// ============================================================
-// SCROLL REVEAL
-// ============================================================
-const revealEls = document.querySelectorAll('.reveal');
-const observer = new IntersectionObserver(entries=>{
-  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
-}, {threshold:0.1});
-revealEls.forEach(el=>observer.observe(el));
-
-// ============================================================
-// SCENARIOS DATA
-// ============================================================
-const SCENARIOS = [
-  {
-    name: "NOMINAL — Visibilidad Solar Total",
-    color: "var(--accent2)",
-    desc: `<strong style="color:var(--accent2)">Operación Nominal:</strong> El satélite tiene visibilidad solar completa. Los paneles generan 150W estables. El tráfico de datos es constante y bajo. Los subsistemas no compiten entre sí por potencia. La matriz A es <em>diagonalmente dominante</em> y bien condicionada: todos los métodos iterativos convergen rápido.`,
-    A: [[10, 1, 0.5], [1, 12, 0.8], [0.5, 0.8, 9]],
-    b: [85, 92, 68],
-    interp: (x) => `En operación nominal, el transmisor RF recibe <strong style="color:var(--accent)">${x[0].toFixed(2)}W</strong>, la CPU de enrutamiento <strong style="color:var(--accent2)">${x[1].toFixed(2)}W</strong> y los reaction wheels <strong style="color:var(--accent3)">${x[2].toFixed(2)}W</strong>. El balance térmico es óptimo: los paneles solares cubren exactamente la demanda con un margen de seguridad. El sistema es estable y todos los métodos convergen sin problemas.`
-  },
-  {
-    name: "SOBRECARGA — Pico de Tráfico Extremo",
-    color: "var(--warn)",
-    desc: `<strong style="color:var(--warn)">Bajo Estrés:</strong> Un evento masivo (ej. cobertura de emergencia) genera un pico de usuarios. El transmisor RF (x₁) y la CPU (x₂) trabajan al límite térmico: 300W de demanda total. Los coeficientes del vector b son muy grandes. El SOR demostrará su ventaja estabilizando la solución antes de que el hardware sufra daño térmico.`,
-    A: [[25, 8, 3], [8, 30, 5], [3, 5, 18]],
-    b: [320, 410, 195],
-    interp: (x) => `En sobrecarga, el transmisor necesita <strong style="color:var(--accent)">${x[0].toFixed(2)}W</strong>, la CPU <strong style="color:var(--accent2)">${x[1].toFixed(2)}W</strong> y la estabilización <strong style="color:var(--accent3)">${x[2].toFixed(2)}W</strong>. La demanda total supera los 300W. El sistema térmico está al límite: si b₂ aumenta otro 10%, el nodo activa el mecanismo de load-shedding (apagado de subsistemas no críticos). El SOR converge más rápido que GS gracias a la sobrerelajación con ω óptimo.`
-  },
-  {
-    name: "SOMBRA TERRESTRE — Sistema Mal Condicionado",
-    color: "var(--danger)",
-    desc: `<strong style="color:var(--danger)">Mal Condicionado:</strong> El satélite entra en la umbra terrestre. Los sensores de corriente operan a -180°C y su ruido electrónico hace que las lecturas de x₂ (CPU) y x₃ (Reaction Wheels) sean casi indistinguibles. Matemáticamente: dos filas de A son casi iguales → planos casi paralelos → κ(A) ≫ 1. Aquí el Gradiente Conjugado Precondicionado de Suñagua es esencial.`,
-    A: [[10, 2, 1], [2, 8.01, 3.99], [2, 8.00, 4.01]],
-    b: [60, 55, 55.1],
-    interp: (x) => `En condición de sombra, la solución x₁=<strong style="color:var(--accent)">${x[0].toFixed(4)}W</strong>, x₂=<strong style="color:var(--accent2)">${x[1].toFixed(4)}W</strong>, x₃=<strong style="color:var(--accent3)">${x[2].toFixed(4)}W</strong> es extremadamente sensible: una perturbación de 0.1W en b puede cambiar la solución en decenas de Watts. Los métodos clásicos (Jacobi, GS) divergen o necesitan miles de iteraciones. El GCP con precondicionador diagonal recupera la solución con precisión numérica aceptable.`
-  }
-];
-
-let currentScenario = 0;
-let sorOmega = 1.25;
-let convChart = null;
-let threeScene = null;
-let allResults = {};
-
-// ============================================================
-// MATRIX UTILS
-// ============================================================
-function matMul(A, x) {
-  return A.map(row => row.reduce((s, a, j) => s + a * x[j], 0));
-}
-function vecSub(a, b) { return a.map((v, i) => v - b[i]); }
-function vecAdd(a, b) { return a.map((v, i) => v + b[i]); }
-function vecScale(a, s) { return a.map(v => v * s); }
-function vecDot(a, b) { return a.reduce((s, v, i) => s + v * b[i], 0); }
-function vecNorm(a) { return Math.sqrt(vecDot(a, a)); }
-function vecNormInf(a) { return Math.max(...a.map(Math.abs)); }
-
-function getMatrix() {
-  const n = 3;
-  const A = [], b = [];
-  for(let i = 0; i < n; i++) {
-    A.push([]);
-    for(let j = 0; j < n; j++) {
-      A[i].push(parseFloat(document.getElementById(`a${i}${j}`).value) || 0);
-    }
-    b.push(parseFloat(document.getElementById(`b${i}`).value) || 0);
-  }
-  return { A, b };
-}
-
-// Condition number estimate (power iteration for max/min eigenvalue)
-function condNumber(A) {
-  const n = A.length;
-  // Using norm-based estimate: ||A||_inf * ||A^{-1}||_inf approx
-  // More accurate: ratio of largest to smallest singular value (approximate via power method)
-  try {
-    const luRes = luDecompose(A.map(r=>[...r]));
-    if(!luRes) return Infinity;
-    // Estimate via ||A||_1 * ||A^{-1}||_1
-    const normA = Math.max(...A.map(row => row.reduce((s,v)=>s+Math.abs(v),0)));
-    // Compute A^{-1} columns
-    const n = A.length;
-    let invNorm = 0;
-    for(let j=0;j<n;j++){
-      const ej = Array(n).fill(0); ej[j]=1;
-      const col = luSolve(luRes.L, luRes.U, luRes.piv, ej);
-      invNorm = Math.max(invNorm, col.reduce((s,v)=>s+Math.abs(v),0));
-    }
-    return normA * invNorm;
-  } catch(e) { return Infinity; }
-}
-
-// ============================================================
-// LU DECOMPOSITION (Doolittle with partial pivoting)
-// ============================================================
-function luDecompose(A) {
-  const n = A.length;
-  const L = Array.from({length:n}, (_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
-  const U = A.map(r=>[...r]);
-  const piv = Array.from({length:n},(_,i)=>i);
-  for(let k=0;k<n;k++){
-    // Partial pivot
-    let maxVal = Math.abs(U[k][k]), maxRow = k;
-    for(let i=k+1;i<n;i++){
-      if(Math.abs(U[i][k])>maxVal){ maxVal=Math.abs(U[i][k]); maxRow=i; }
-    }
-    if(maxRow!==k){
-      [U[k],U[maxRow]]=[U[maxRow],U[k]];
-      [piv[k],piv[maxRow]]=[piv[maxRow],piv[k]];
-      for(let j=0;j<k;j++) [L[k][j],L[maxRow][j]]=[L[maxRow][j],L[k][j]];
-    }
-    if(Math.abs(U[k][k])<1e-15) return null; // singular
-    for(let i=k+1;i<n;i++){
-      L[i][k]=U[i][k]/U[k][k];
-      for(let j=k;j<n;j++) U[i][j]-=L[i][k]*U[k][j];
-    }
-  }
-  return {L, U, piv};
-}
-
-function luSolve(L, U, piv, b) {
-  const n = b.length;
-  const pb = piv.map(i=>b[i]);
-  // Forward substitution
-  const y = Array(n).fill(0);
-  for(let i=0;i<n;i++){
-    y[i]=pb[i];
-    for(let j=0;j<i;j++) y[i]-=L[i][j]*y[j];
-  }
-  // Backward substitution
-  const x = Array(n).fill(0);
-  for(let i=n-1;i>=0;i--){
-    x[i]=y[i];
-    for(let j=i+1;j<n;j++) x[i]-=U[i][j]*x[j];
-    x[i]/=U[i][i];
-  }
-  return x;
-}
-
-function solveLU(A, b) {
-  const lu = luDecompose(A.map(r=>[...r]));
-  if(!lu) return { sol: null, error: 'Matriz singular' };
-  return { sol: luSolve(lu.L, lu.U, lu.piv, b), iters: 1, conv: true };
-}
-
-// ============================================================
-// JACOBI
-// ============================================================
-function solveJacobi(A, b, tol=1e-6, maxIter=10000) {
-  const n = A.length;
-  let x = Array(n).fill(0);
-  const history = [];
-  for(let k=0;k<maxIter;k++){
-    const xNew = Array(n).fill(0);
-    for(let i=0;i<n;i++){
-      let s=0;
-      for(let j=0;j<n;j++) if(j!==i) s+=A[i][j]*x[j];
-      if(Math.abs(A[i][i])<1e-15) return {sol:null,iters:k,conv:false,history};
-      xNew[i]=(b[i]-s)/A[i][i];
-    }
-    const err = vecNormInf(vecSub(xNew,x));
-    history.push(err);
-    x=xNew;
-    if(err<tol) return {sol:x,iters:k+1,conv:true,history,finalErr:err};
-  }
-  return {sol:x,iters:maxIter,conv:false,history,finalErr:history[history.length-1]};
-}
-
-// ============================================================
-// GAUSS-SEIDEL
-// ============================================================
-function solveGS(A, b, tol=1e-6, maxIter=10000) {
-  const n = A.length;
-  let x = Array(n).fill(0);
-  const history = [];
-  for(let k=0;k<maxIter;k++){
-    const xOld = [...x];
-    for(let i=0;i<n;i++){
-      let s=0;
-      for(let j=0;j<n;j++) if(j!==i) s+=A[i][j]*x[j];
-      if(Math.abs(A[i][i])<1e-15) return {sol:null,iters:k,conv:false,history};
-      x[i]=(b[i]-s)/A[i][i];
-    }
-    const err = vecNormInf(vecSub(x,xOld));
-    history.push(err);
-    if(err<tol) return {sol:x,iters:k+1,conv:true,history,finalErr:err};
-  }
-  return {sol:x,iters:maxIter,conv:false,history,finalErr:history[history.length-1]};
-}
-
-// ============================================================
-// SOR
-// ============================================================
-function solveSOR(A, b, omega, tol=1e-6, maxIter=10000) {
-  const n = A.length;
-  let x = Array(n).fill(0);
-  const history = [];
-  for(let k=0;k<maxIter;k++){
-    const xOld = [...x];
-    for(let i=0;i<n;i++){
-      let s=0;
-      for(let j=0;j<n;j++) if(j!==i) s+=A[i][j]*x[j];
-      if(Math.abs(A[i][i])<1e-15) return {sol:null,iters:k,conv:false,history};
-      const xGS = (b[i]-s)/A[i][i];
-      x[i] = (1-omega)*x[i] + omega*xGS;
-    }
-    const err = vecNormInf(vecSub(x,xOld));
-    history.push(err);
-    if(err<tol) return {sol:x,iters:k+1,conv:true,history,finalErr:err};
-  }
-  return {sol:x,iters:maxIter,conv:false,history,finalErr:history[history.length-1]};
-}
-
-// ============================================================
-// GRADIENTE CONJUGADO PRECONDICIONADO (Suñagua, Algoritmo 2)
-// Precondicionador: M = diag(A)^{-1}
-// ============================================================
-function solveGCP(A, b, tol=1e-6, maxIter=10000) {
-  const n = A.length;
-  // Build preconditioner M = diag(A)^{-1}
-  const Mdiag = A.map((row, i) => {
-    const d = Math.abs(row[i]);
-    return d < 1e-15 ? 1.0 : 1.0 / d;
-  });
-  // Apply M to vector: Mz = r => z = M*r (diagonal so trivial)
-  const applyM = r => r.map((v,i) => v * Mdiag[i]);
-
-  let x = Array(n).fill(0);
-  let r = vecSub(b, matMul(A, x)); // r0 = b - Ax0
-  let z = applyM(r); // Solve Mz = r
-  let p = [...z];
-  let rz_old = vecDot(r, z);
-  const history = [];
-
-  for(let k=0;k<maxIter;k++){
-    const Ap = matMul(A, p);
-    const pAp = vecDot(p, Ap);
-    if(Math.abs(pAp) < 1e-30) break;
-    const alpha = rz_old / pAp;
-    x = vecAdd(x, vecScale(p, alpha));
-    r = vecSub(r, vecScale(Ap, alpha));
-    const err = vecNorm(r);
-    history.push(err);
-    if(err < tol) return {sol:x,iters:k+1,conv:true,history,finalErr:err};
-    z = applyM(r);
-    const rz_new = vecDot(r, z);
-    if(Math.abs(rz_old) < 1e-30) break;
-    const beta = rz_new / rz_old;
-    p = vecAdd(z, vecScale(p, beta));
-    rz_old = rz_new;
-  }
-  const finalErr = vecNorm(vecSub(b, matMul(A, x)));
-  return {sol:x,iters:Math.min(history.length,maxIter),conv:finalErr<tol*10,history,finalErr};
-}
-
-// ============================================================
-// UI: RENDER MATRIX
-// ============================================================
-function renderMatrix(A, b) {
-  const n = 3;
-  let html = `
-    <div>
-      <div class="matrix-bracket">[</div>
-    </div>
-    <div>
-      <div class="matrix-inner" id="A-cells">`;
-  for(let i=0;i<n;i++){
-    html += `<div class="matrix-row">`;
-    for(let j=0;j<n;j++){
-      html += `<input class="matrix-cell" id="a${i}${j}" type="number" step="any" value="${A[i][j]}">`;
-    }
-    html += `</div>`;
-  }
-  html += `</div>
-      <div class="matrix-label">A</div>
-    </div>
-    <div><div class="matrix-bracket">]</div></div>
-    <div style="font-family:var(--mono);font-size:24px;color:var(--text-dim);padding:0 8px;">·</div>
-    <div>
-      <div class="matrix-bracket">[</div>
-    </div>
-    <div>
-      <div class="matrix-inner">`;
-  for(let i=0;i<n;i++){
-    html += `<div class="matrix-row"><input class="matrix-cell vec-cell" id="x${i}" style="background:rgba(0,212,255,0.05);border-color:rgba(0,212,255,0.2);" type="text" value="x${i+1}" readonly></div>`;
-  }
-  html += `</div>
-      <div class="matrix-label">x</div>
-    </div>
-    <div><div class="matrix-bracket">]</div></div>
-    <div style="font-family:var(--mono);font-size:24px;color:var(--text-dim);padding:0 8px;">=</div>
-    <div>
-      <div class="matrix-bracket">[</div>
-    </div>
-    <div>
-      <div class="matrix-inner">`;
-  for(let i=0;i<n;i++){
-    html += `<div class="matrix-row"><input class="matrix-cell vec-cell" id="b${i}" type="number" step="any" value="${b[i]}"></div>`;
-  }
-  html += `</div>
-      <div class="matrix-label">b</div>
-    </div>
-    <div><div class="matrix-bracket">]</div></div>`;
-  document.getElementById('matrix-display').innerHTML = html;
-  updateKappa();
-}
-
-function updateKappa() {
-  try {
-    const {A} = getMatrix();
-    const k = condNumber(A);
-    const el = document.getElementById('kappa-val');
-    const badge = document.getElementById('kappa-badge');
-    if(k === Infinity || isNaN(k)){
-      el.textContent = '∞ (SINGULAR)';
-      el.className = 'kappa-val kappa-bad';
-      badge.textContent = '⚠ SINGULAR';
-    } else if(k < 100){
-      el.textContent = k.toExponential(3);
-      el.className = 'kappa-val kappa-good';
-      badge.innerHTML = '<span class="badge badge-yes">BIEN COND.</span>';
-    } else if(k < 1e6){
-      el.textContent = k.toExponential(3);
-      el.className = 'kappa-val kappa-warn';
-      badge.innerHTML = '<span class="badge" style="background:rgba(255,183,0,0.15);color:var(--warn);border:1px solid rgba(255,183,0,0.3);">MOD. COND.</span>';
-    } else {
-      el.textContent = k.toExponential(3);
-      el.className = 'kappa-val kappa-bad';
-      badge.innerHTML = '<span class="badge badge-no">MAL COND.</span>';
-    }
-  } catch(e) {}
-}
-
-// ============================================================
-// SCENARIO CONTROL
-// ============================================================
-function setScenario(idx) {
-  currentScenario = idx;
-  const s = SCENARIOS[idx];
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
-  document.getElementById('scenario-desc').innerHTML = s.desc;
-  renderMatrix(s.A, s.b);
-  document.getElementById('ex1').textContent = '—';
-  document.getElementById('ex2').textContent = '—';
-  document.getElementById('ex3').textContent = '—';
-  document.getElementById('interp-text').textContent = 'Presiona RESOLVER para ver la interpretación.';
-  document.getElementById('log-box').innerHTML = `<span style="color:var(--text-dim)">› Escenario ${idx+1} cargado: ${s.name}</span>`;
-}
-
-function resetScenario() {
-  setScenario(currentScenario);
-}
-
-function updateOmega() {
-  sorOmega = parseFloat(document.getElementById('sor-omega').value);
-  document.getElementById('sor-omega-val').textContent = sorOmega.toFixed(2);
-}
-
-// ============================================================
-// SOLVE ALL METHODS
-// ============================================================
-function solveAll() {
-  const {A, b} = getMatrix();
-  const tol = 1e-6;
-  const log = [];
-  const addLog = (msg, cls='') => log.push(`<span class="${cls}">› ${msg}</span>`);
-
-  addLog(`Iniciando resolución — Escenario ${currentScenario+1}: ${SCENARIOS[currentScenario].name}`, 'log-info');
-  addLog(`Tolerancia: 10⁻⁶ · ω(SOR): ${sorOmega.toFixed(2)} · Precond. GCP: M=diag(A)⁻¹`);
-
-  // LU (exact reference)
-  const luRes = solveLU(A.map(r=>[...r]), [...b]);
-  const exactSol = luRes.sol;
-  if(!exactSol){ addLog('ERROR: Matriz singular — no se puede resolver', 'log-err'); return; }
-  addLog(`LU completado. Solución exacta: [${exactSol.map(v=>v.toFixed(6)).join(', ')}] W`, 'log-ok');
-
-  // Update exact solution display
-  document.getElementById('ex1').textContent = exactSol[0].toFixed(4) + ' W';
-  document.getElementById('ex2').textContent = exactSol[1].toFixed(4) + ' W';
-  document.getElementById('ex3').textContent = exactSol[2].toFixed(4) + ' W';
-  document.getElementById('interp-text').innerHTML = SCENARIOS[currentScenario].interp(exactSol);
-
-  // Jacobi
-  const jRes = solveJacobi(A, [...b], tol);
-  if(jRes.conv) addLog(`Jacobi convergió en ${jRes.iters} iter. Error: ${jRes.finalErr.toExponential(2)}`, 'log-ok');
-  else addLog(`Jacobi NO convergió tras ${jRes.iters} iter. Error: ${jRes.finalErr?.toExponential(2)}`, 'log-err');
-
-  // Gauss-Seidel
-  const gsRes = solveGS(A, [...b], tol);
-  if(gsRes.conv) addLog(`Gauss-Seidel convergió en ${gsRes.iters} iter. Error: ${gsRes.finalErr.toExponential(2)}`, 'log-ok');
-  else addLog(`Gauss-Seidel NO convergió tras ${gsRes.iters} iter. Error: ${gsRes.finalErr?.toExponential(2)}`, 'log-err');
-
-  // SOR
-  const sorRes = solveSOR(A, [...b], sorOmega, tol);
-  if(sorRes.conv) addLog(`SOR(ω=${sorOmega.toFixed(2)}) convergió en ${sorRes.iters} iter. Error: ${sorRes.finalErr.toExponential(2)}`, 'log-ok');
-  else addLog(`SOR(ω=${sorOmega.toFixed(2)}) NO convergió tras ${sorRes.iters} iter. Error: ${sorRes.finalErr?.toExponential(2)}`, 'log-warn');
-
-  // GCP
-  const gcpRes = solveGCP(A, [...b], tol);
-  if(gcpRes.conv) addLog(`GCP (Suñagua Alg.2) convergió en ${gcpRes.iters} iter. Error: ${gcpRes.finalErr.toExponential(2)}`, 'log-ok');
-  else addLog(`GCP convergió parcialmente en ${gcpRes.iters} iter. Error: ${gcpRes.finalErr?.toExponential(2)}`, 'log-warn');
-
-  addLog(`━━━ Resolución completada ━━━`, 'log-info');
-  document.getElementById('log-box').innerHTML = log.join('<br>');
-
-  // Store results keyed by scenario
-  allResults[currentScenario] = { luRes, jRes, gsRes, sorRes, gcpRes, exactSol, A, b };
-
-  // Update compare table with all stored results
-  updateCompareTable();
-  updateConvergenceChart(jRes, gsRes, sorRes, gcpRes);
-  update3DPlanes(A, b, exactSol);
-  updateAnalysis();
-}
-
-// ============================================================
-// COMPARE TABLE (runs all 3 scenarios if needed)
-// ============================================================
-function updateCompareTable() {
-  // Try to auto-solve all scenarios for complete table
-  const allData = {};
-  for(let idx=0;idx<3;idx++){
-    if(allResults[idx]){
-      allData[idx] = allResults[idx];
-    } else {
-      // Compute silently
-      const s = SCENARIOS[idx];
-      const A = s.A.map(r=>[...r]);
-      const b = [...s.b];
-      const luRes = solveLU(A.map(r=>[...r]), [...b]);
-      const jRes = solveJacobi(A, [...b], 1e-6);
-      const gsRes = solveGS(A, [...b], 1e-6);
-      const sorRes = solveSOR(A, [...b], sorOmega, 1e-6);
-      const gcpRes = solveGCP(A, [...b], 1e-6);
-      allData[idx] = {luRes, jRes, gsRes, sorRes, gcpRes, exactSol: luRes.sol};
-    }
-  }
-
-  const methods = [
-    { name: 'Jacobi', key: 'jRes', color: 'var(--accent)' },
-    { name: 'Gauss-Seidel', key: 'gsRes', color: 'var(--accent2)' },
-    { name: `SOR (ω=${sorOmega.toFixed(2)})`, key: 'sorRes', color: 'var(--accent3)' },
-    { name: 'Grad. Conj. Prec.', key: 'gcpRes', color: 'var(--accent4)' },
-    { name: 'Factorización LU', key: 'luRes', color: 'var(--text-dim)' },
-  ];
-
-  let html = '';
-  for(const m of methods){
-    const isLU = m.key === 'luRes';
-    const d = [allData[0], allData[1], allData[2]].map(d=>d?d[m.key]:null);
-    const iterStrs = d.map((r,i)=>{
-      if(!r) return '—';
-      if(isLU) return `<span class="badge badge-ref">1 (directo)</span>`;
-      return r.iters !== undefined ? r.iters : '—';
-    });
-    const convBadge = (r) => r ? (r.conv ? '<span class="badge badge-yes">SÍ</span>' : '<span class="badge badge-no">NO</span>') : '—';
-    const errStr = d[2] ? (d[2].finalErr !== undefined ? d[2].finalErr.toExponential(2) : '0') : '—';
-
-    // Find best iters among iterative for each scenario
-    html += `<tr>
-      <td style="color:${m.color};font-weight:600;">${m.name}</td>
-      <td>${iterStrs[0]}</td>
-      <td>${iterStrs[1]}</td>
-      <td>${iterStrs[2]}</td>
-      <td>${convBadge(d[0])}</td>
-      <td>${convBadge(d[1])}</td>
-      <td>${convBadge(d[2])}</td>
-      <td style="font-family:var(--mono);font-size:11px;">${errStr}</td>
-    </tr>`;
-  }
-  document.getElementById('compare-tbody').innerHTML = html;
-}
-
-// ============================================================
-// CONVERGENCE CHART
-// ============================================================
-function updateConvergenceChart(jRes, gsRes, sorRes, gcpRes) {
-  const maxLen = 80;
-  const subsample = (arr, maxPts) => {
-    if(!arr || arr.length===0) return [];
-    const step = Math.max(1, Math.floor(arr.length/maxPts));
-    return arr.filter((_,i)=>i%step===0).slice(0,maxPts);
-  };
-
-  const datasets = [
-    { label: 'Jacobi', data: subsample(jRes.history, maxLen).map((v,i)=>({x:i,y:Math.max(v,1e-15)})), borderColor:'#00d4ff', tension:0.3, pointRadius:0, borderWidth:1.5 },
-    { label: 'Gauss-Seidel', data: subsample(gsRes.history, maxLen).map((v,i)=>({x:i,y:Math.max(v,1e-15)})), borderColor:'#00ff9d', tension:0.3, pointRadius:0, borderWidth:1.5 },
-    { label: `SOR ω=${sorOmega.toFixed(2)}`, data: subsample(sorRes.history, maxLen).map((v,i)=>({x:i,y:Math.max(v,1e-15)})), borderColor:'#ff6b35', tension:0.3, pointRadius:0, borderWidth:1.5 },
-    { label: 'GCP (Suñagua)', data: subsample(gcpRes.history, maxLen).map((v,i)=>({x:i,y:Math.max(v,1e-15)})), borderColor:'#c77dff', tension:0.3, pointRadius:0, borderWidth:2 },
-  ].filter(d=>d.data.length>0);
-
-  if(convChart) convChart.destroy();
-  const ctx = document.getElementById('conv-chart').getContext('2d');
-  convChart = new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      responsive: true,
-      scales: {
-        x: { type:'linear', title:{ display:true, text:'Iteración (subm.)', color:'#4a7a9b', font:{family:"'Share Tech Mono'"} },
-          ticks:{color:'#4a7a9b', font:{family:"'Share Tech Mono'", size:10}},
-          grid:{color:'rgba(13,58,92,0.4)'} },
-        y: { type:'logarithmic',
-          title:{ display:true, text:'Error (norma ∞, log)', color:'#4a7a9b', font:{family:"'Share Tech Mono'"} },
-          ticks:{color:'#4a7a9b', font:{family:"'Share Tech Mono'", size:10},
-            callback: v => v.toExponential(0)},
-          grid:{color:'rgba(13,58,92,0.4)'},
-          min: 1e-8
-        }
-      },
-      plugins: {
-        legend: { labels:{ color:'#cce8ff', font:{family:"'Share Tech Mono'", size:11}, boxWidth:20 } },
-        annotation: {},
-        tooltip: { backgroundColor:'#071627', borderColor:'#0d3a5c', borderWidth:1,
-          titleFont:{family:"'Share Tech Mono'"}, bodyFont:{family:"'Share Tech Mono'"},
-          callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toExponential(3)}` }
-        }
-      },
-      animation: { duration: 600 }
-    }
-  });
-
-  // Draw tolerance line manually via plugin (compatible with Chart.js 4)
-  const tolPlugin = {
-    id: 'tolLine',
-    afterDraw(chart) {
-      const {ctx, scales:{y}} = chart;
-      if(!y) return;
-      const yPx = y.getPixelForValue(1e-6);
-      if(isNaN(yPx)) return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.setLineDash([6,4]);
-      ctx.strokeStyle='rgba(255,183,0,0.7)';
-      ctx.lineWidth=1.5;
-      ctx.moveTo(chart.chartArea.left, yPx);
-      ctx.lineTo(chart.chartArea.right, yPx);
-      ctx.stroke();
-      ctx.font="11px 'Share Tech Mono'";
-      ctx.fillStyle='rgba(255,183,0,0.9)';
-      ctx.fillText('tol = 10⁻⁶', chart.chartArea.left+4, yPx-5);
-      ctx.restore();
-    }
-  };
-  convChart.options.plugins.tolLine = {};
-  Chart.register(tolPlugin);
-  convChart.update();
-}
-
-// ============================================================
-// THREE.JS 3D PLANES
-// ============================================================
-let threeRenderer = null, threeCamera = null, threeSceneObj = null;
-let isDragging = false, prevMouse = {x:0,y:0}, spherical = {theta:0.6, phi:1.0, r:12};
-
-function update3DPlanes(A, b, sol) {
-  const canvas = document.getElementById('three-canvas');
-  if(!threeRenderer) {
-    threeRenderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-    threeRenderer.setPixelRatio(window.devicePixelRatio);
-    threeRenderer.setClearColor(0x050f1f, 1);
-    threeCamera = new THREE.PerspectiveCamera(45, canvas.clientWidth/canvas.clientHeight, 0.1, 200);
-    // Mouse controls
-    canvas.addEventListener('mousedown', e=>{ isDragging=true; prevMouse={x:e.clientX,y:e.clientY}; });
-    canvas.addEventListener('mousemove', e=>{
-      if(!isDragging) return;
-      const dx=(e.clientX-prevMouse.x)*0.01, dy=(e.clientY-prevMouse.y)*0.01;
-      spherical.theta+=dx; spherical.phi=Math.max(0.1,Math.min(Math.PI-0.1,spherical.phi+dy));
-      prevMouse={x:e.clientX,y:e.clientY};
-    });
-    canvas.addEventListener('mouseup',()=>isDragging=false);
-    canvas.addEventListener('wheel',e=>{ spherical.r=Math.max(4,Math.min(30,spherical.r+e.deltaY*0.02)); });
-    // Touch
-    let lastTouch=null;
-    canvas.addEventListener('touchstart',e=>{ lastTouch=e.touches[0]; });
-    canvas.addEventListener('touchmove',e=>{
-      if(!lastTouch) return;
-      const t=e.touches[0];
-      const dx=(t.clientX-lastTouch.clientX)*0.015, dy=(t.clientY-lastTouch.clientY)*0.015;
-      spherical.theta+=dx; spherical.phi=Math.max(0.1,Math.min(Math.PI-0.1,spherical.phi+dy));
-      lastTouch=t;
-    });
-    canvas.addEventListener('touchend',()=>lastTouch=null);
-  }
-  threeRenderer.setSize(canvas.clientWidth, canvas.clientHeight);
-  threeCamera.aspect = canvas.clientWidth/canvas.clientHeight;
-  threeCamera.updateProjectionMatrix();
-
-  // Clear scene
-  threeSceneObj = new THREE.Scene();
-
-  // Axes
-  const axMat = col => new THREE.LineBasicMaterial({color:col});
-  const axGeo = (v1,v2) => { const g=new THREE.BufferGeometry(); g.setFromPoints([new THREE.Vector3(...v1),new THREE.Vector3(...v2)]); return g; };
-  const axLen=8;
-  threeSceneObj.add(new THREE.Line(axGeo([-axLen,0,0],[axLen,0,0]), axMat(0x1a4a6a)));
-  threeSceneObj.add(new THREE.Line(axGeo([0,-axLen,0],[0,axLen,0]), axMat(0x1a6a3a)));
-  threeSceneObj.add(new THREE.Line(axGeo([0,0,-axLen],[0,0,axLen]), axMat(0x6a2a1a)));
-
-  // Axis labels (sprites)
-  const makeLabel = (text, pos, col) => {
-    const c2d = document.createElement('canvas'); c2d.width=64; c2d.height=32;
-    const c2 = c2d.getContext('2d');
-    c2.fillStyle=col; c2.font='bold 24px monospace'; c2.textAlign='center'; c2.fillText(text,32,24);
-    const tex = new THREE.CanvasTexture(c2d);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
-    sp.position.set(...pos); sp.scale.set(1.5,0.75,1);
-    threeSceneObj.add(sp);
-  };
-  makeLabel('x₁',[axLen+1,0,0],'#00d4ff');
-  makeLabel('x₂',[0,axLen+1,0],'#00ff9d');
-  makeLabel('x₃',[0,0,axLen+1],'#ff6b35');
-
-  // Plane colors
-  const planeColors = [0x0088cc, 0x00cc66, 0xcc4400];
-  const planeOpacity = [0.35, 0.35, 0.35];
-
-  // Draw each plane a₁x₁ + a₂x₂ + a₃x₃ = b
-  const planeSize = 7;
-  const N = 30;
-  for(let eq=0;eq<3;eq++){
-    const [a1,a2,a3] = A[eq];
-    const bv = b[eq];
-    // Sample a grid on the plane using two free params
-    // Parametrize: pick u=x1, v=x2, compute x3 if a3!=0
-    const vertices = [], indices = [];
-    const range = planeSize;
-    const step = (2*range)/(N-1);
-    // Choose dominant axis for expression
-    const dominant = [Math.abs(a1),Math.abs(a2),Math.abs(a3)].indexOf(Math.max(Math.abs(a1),Math.abs(a2),Math.abs(a3)));
-
-    for(let iu=0;iu<N;iu++){
-      for(let iv=0;iv<N;iv++){
-        const u = -range+iu*step, v = -range+iv*step;
-        let x1,x2,x3;
-        if(dominant===2 && Math.abs(a3)>1e-10){
-          x1=u; x2=v; x3=(bv-a1*u-a2*v)/a3;
-        } else if(dominant===1 && Math.abs(a2)>1e-10){
-          x1=u; x3=v; x2=(bv-a1*u-a3*v)/a2;
-        } else if(Math.abs(a1)>1e-10){
-          x2=u; x3=v; x1=(bv-a2*u-a3*v)/a1;
-        } else { x1=u; x2=v; x3=0; }
-        vertices.push(x1,x2,x3);
-      }
-    }
-    for(let iu=0;iu<N-1;iu++){
-      for(let iv=0;iv<N-1;iv++){
-        const i0=iu*N+iv, i1=i0+1, i2=(iu+1)*N+iv, i3=i2+1;
-        indices.push(i0,i1,i2, i1,i3,i2);
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
-    geo.setIndex(indices);
-    geo.computeVertexNormals();
-    const mat = new THREE.MeshPhongMaterial({
-      color: planeColors[eq], opacity: planeOpacity[eq],
-      transparent:true, side:THREE.DoubleSide, shininess:30
-    });
-    threeSceneObj.add(new THREE.Mesh(geo, mat));
-
-    // Wireframe grid lines
-    const wmat = new THREE.LineBasicMaterial({color:planeColors[eq], opacity:0.25, transparent:true});
-    const wgeo = new THREE.WireframeGeometry(geo);
-    threeSceneObj.add(new THREE.LineSegments(wgeo, wmat));
-  }
-
-  // Solution point
-  if(sol){
-    const sgeo = new THREE.SphereGeometry(0.18,16,16);
-    const smat = new THREE.MeshPhongMaterial({color:0xffffff, emissive:0xffffff, emissiveIntensity:0.8});
-    const smesh = new THREE.Mesh(sgeo, smat);
-    smesh.position.set(...sol);
-    threeSceneObj.add(smesh);
-    // Glow ring
-    const rgeo = new THREE.TorusGeometry(0.4,0.04,8,32);
-    const rmat = new THREE.MeshBasicMaterial({color:0x00d4ff, transparent:true, opacity:0.7});
-    const rmesh = new THREE.Mesh(rgeo, rmat);
-    rmesh.position.set(...sol);
-    threeSceneObj.add(rmesh);
-  }
-
-  // Lights
-  threeSceneObj.add(new THREE.AmbientLight(0x334466, 0.8));
-  const dl = new THREE.DirectionalLight(0x00d4ff, 0.6);
-  dl.position.set(5,10,5);
-  threeSceneObj.add(dl);
-
-  // Animate
-  function animate3D() {
-    requestAnimationFrame(animate3D);
-    const x = spherical.r*Math.sin(spherical.phi)*Math.sin(spherical.theta);
-    const y = spherical.r*Math.cos(spherical.phi);
-    const z = spherical.r*Math.sin(spherical.phi)*Math.cos(spherical.theta);
-    threeCamera.position.set(x,y,z);
-    threeCamera.lookAt(0,0,0);
-    threeRenderer.render(threeSceneObj, threeCamera);
-  }
-  animate3D();
-}
-
-// ============================================================
-// ANALYSIS TEXT
-// ============================================================
-function updateAnalysis() {
-  const allData = {};
-  for(let idx=0;idx<3;idx++){
-    if(allResults[idx]) allData[idx]=allResults[idx];
-    else {
-      const s=SCENARIOS[idx];
-      const A=s.A.map(r=>[...r]), b=[...s.b];
-      allData[idx]={
-        jRes:solveJacobi(A,[...b]),
-        gsRes:solveGS(A,[...b]),
-        sorRes:solveSOR(A,[...b],sorOmega),
-        gcpRes:solveGCP(A,[...b]),
-        luRes:solveLU(A.map(r=>[...r]),[...b])
-      };
-    }
-  }
-  const k1=condNumber(SCENARIOS[0].A), k2=condNumber(SCENARIOS[1].A), k3=condNumber(SCENARIOS[2].A);
-  const d=allData;
-  const html = `
-    <strong style="color:var(--accent2)">Análisis del Número de Condición κ(A):</strong><br><br>
-    • <strong style="color:var(--accent)">Escenario 1 (Nominal):</strong> κ(A) ≈ <code style="color:var(--accent)">${k1.toExponential(2)}</code>. La matriz es diagonalmente dominante. Jacobi converge en ~<strong>${d[0].jRes.iters}</strong> iter, GS en ~<strong>${d[0].gsRes.iters}</strong> iter, SOR en ~<strong>${d[0].sorRes.iters}</strong> iter. El sistema está bien condicionado: pequeñas perturbaciones en b producen pequeños cambios en x. El satélite opera con márgenes de seguridad cómodos.<br><br>
-    • <strong style="color:var(--warn)">Escenario 2 (Estrés):</strong> κ(A) ≈ <code style="color:var(--warn)">${k2.toExponential(2)}</code>. Los coeficientes son mayores pero la estructura dominante se mantiene. Jacobi: <strong>${d[1].jRes.iters}</strong> iter, GS: <strong>${d[1].gsRes.iters}</strong> iter, SOR: <strong>${d[1].sorRes.iters}</strong> iter. Los coeficientes grandes en b no afectan el condicionamiento. SOR con ω>${sorOmega>1.1?'1':'1'} acelera la convergencia respecto a GS puro.<br><br>
-    • <strong style="color:var(--danger)">Escenario 3 (Mal Condicionado):</strong> κ(A) ≈ <code style="color:var(--danger)">${k3.toExponential(2)}</code>. Dos filas casi iguales generan planos casi paralelos en el espacio 3D — visible en la visualización. Jacobi: ${d[2].jRes.conv?'convergió en '+d[2].jRes.iters+' iter':'<span class="badge badge-no">NO CONV.</span>'}, GS: ${d[2].gsRes.conv?'convergió en '+d[2].gsRes.iters+' iter':'<span class="badge badge-no">NO CONV.</span>'}. El <strong style="color:var(--accent4)">GCP (Suñagua Alg.2)</strong> con precondicionador M=diag(A)⁻¹ reduce κ(A_prec) ≪ κ(A), logrando convergencia en ${d[2].gcpRes.iters} iter con error ${d[2].gcpRes.finalErr?.toExponential(2)}.<br><br>
-    <strong style="color:var(--accent2)">Conclusión de Ingeniería:</strong> En la sombra terrestre (Esc. 3), los métodos clásicos son insuficientes para determinar la distribución óptima de potencia. El algoritmo de Suñagua (GCP precondicionado) es la única alternativa que garantiza una solución con precisión 10⁻⁶ en este escenario crítico, previniendo una falla catastrófica del bus eléctrico del satélite.
-  `;
-  document.getElementById('analysis-text').innerHTML = html;
-}
-
-// ============================================================
-// INIT
-// ============================================================
-setScenario(0);
-// Pre-solve all scenarios for complete table on load
-setTimeout(() => {
-  for(let i=0;i<3;i++){
-    if(!allResults[i]){
-      const s=SCENARIOS[i];
-      const A=s.A.map(r=>[...r]), b=[...s.b];
-      allResults[i]={
-        jRes:solveJacobi(A,[...b]),
-        gsRes:solveGS(A,[...b]),
-        sorRes:solveSOR(A,[...b],sorOmega),
-        gcpRes:solveGCP(A,[...b]),
-        luRes:solveLU(A.map(r=>[...r]),[...b])
-      };
-    }
-  }
-  updateCompareTable();
-  updateAnalysis();
-  // Initial 3D with scenario 0
-  update3DPlanes(SCENARIOS[0].A, SCENARIOS[0].b, allResults[0].luRes.sol);
-}, 200);
-
-// Add input listeners for live kappa update
-document.addEventListener('input', e => {
-  if(e.target.classList.contains('matrix-cell')) updateKappa();
-});
-</script>
 </body>
 </html>
